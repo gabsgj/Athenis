@@ -53,7 +53,19 @@ def create_app():
 
     @app.route("/")
     def index():
-        return render_template("index.html")
+        api_base_url = os.getenv("API_BASE_URL", "/api/v1")
+        gofr_base_url = os.getenv("GOFR_BASE_URL", "http://localhost:9090")
+        require_api_key = os.getenv("API_KEY_REQUIRED", "true").lower() in ("1", "true", "yes")
+        github_owner = os.getenv("GITHUB_OWNER", "gabsgj")
+        github_repo = os.getenv("GITHUB_REPO", "hackOdisha")
+        return render_template(
+            "index.html",
+            api_base_url=api_base_url,
+            gofr_base_url=gofr_base_url,
+            require_api_key=require_api_key,
+            github_owner=github_owner,
+            github_repo=github_repo,
+        )
 
     @app.route("/api/v1/health")
     def health():

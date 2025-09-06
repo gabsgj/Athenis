@@ -63,8 +63,8 @@ if ($UseRealModel) {
 
 # Install Flask and core libs early
 pip install flask==3.0.3 flask-cors==4.0.0 prometheus-client==0.20.0 structlog==24.1.0 loguru==0.7.2 python-dotenv==1.0.1 requests==2.32.3
-# Ensure numpy is present for embeddings fallback
-pip install numpy==1.26.4
+# Ensure numpy is present for embeddings fallback (prefer a recent wheel)
+pip install "numpy>=2.1.0"
 
 # Install remaining requirements
 $tmpReq = Join-Path (Get-Location) ".req-dev-nobnb.txt"

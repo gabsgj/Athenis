@@ -46,9 +46,9 @@ class ModelManager:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.prompt = PromptManager()
         self.embedder = Embedder()
-    self.tokenizer = None
-    self.model = None
-    self.generator = None
+        self.tokenizer = None
+        self.model = None
+        self.generator = None
 
     def _load_model(self):
         try:
