@@ -3,8 +3,34 @@ import json
 import math
 from typing import Dict, Any, Generator, List
 
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+try:
+    import torch
+except Exception:  # allow running without torch in FAST_TEST
+    class _Cuda:
+        @staticmethod
+        def is_available():
+            return False
+
+        @staticmethod
+        def memory_allocated():
+            return 0
+
+        @staticmethod
+        def get_device_name(_):
+            return "cpu"
+
+    class _TorchStub:
+        cuda = _Cuda()
+        float16 = None
+        float32 = None
+
+    torch = _TorchStub()
+try:
+    from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+except Exception:  # allow running without transformers in FAST_TEST
+    AutoTokenizer = None
+    AutoModelForCausalLM = None
+    pipeline = None
 
 from app.models.prompt_manager import PromptManager
 from app.models.embeddings import Embedder
@@ -20,16 +46,21 @@ class ModelManager:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.prompt = PromptManager()
         self.embedder = Embedder()
-
     self.tokenizer = None
     self.model = None
     self.generator = None
 
     def _load_model(self):
         try:
+            if AutoTokenizer is None or AutoModelForCausalLM is None or pipeline is None:
+                raise RuntimeError("transformers not available")
             bnb_args = {}
             if self.device == "cuda" and self.quantize in ("8bit", "4bit"):
-                import bitsandbytes  # noqa: F401
+                try:
+                    import bitsandbytes  # noqa: F401
+                except Exception:
+                    logger.warning("bitsandbytes not available; proceeding without quantization")
+                    self.quantize = "none"
                 if self.quantize == "8bit":
                     bnb_args = {"load_in_8bit": True, "device_map": "auto"}
                 else:

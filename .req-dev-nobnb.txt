@@ -10,11 +10,10 @@ prometheus-client==0.20.0
 python-dotenv==1.0.1
 
 transformers==4.43.3
-torch==2.3.1
 accelerate==0.33.0
-bitsandbytes==0.43.1
 sentence-transformers==3.0.1
 numpy==1.26.4
+scikit-learn==1.5.1
 redis==5.0.7
 
 pdfminer.six==20231228
