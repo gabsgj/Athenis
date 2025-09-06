@@ -63,29 +63,40 @@ if ($UseRealModel) {
 
 # Install Flask and core libs early
 pip install flask==3.0.3 flask-cors==4.0.0 prometheus-client==0.20.0 structlog==24.1.0 loguru==0.7.2 python-dotenv==1.0.1 requests==2.32.3
+# Ensure numpy is present for embeddings fallback
+pip install numpy==1.26.4
 
-# Install remaining requirements, excluding torch and bitsandbytes on Windows
+# Install remaining requirements
 $tmpReq = Join-Path (Get-Location) ".req-dev-nobnb.txt"
-Get-Content requirements.txt |
-  Where-Object { $_ -notmatch '^(\s*torch\b|\s*bitsandbytes\b)' } |
-  Set-Content $tmpReq
+if (-not $UseRealModel) {
+  Write-Host "FAST_TEST mode: filtering out heavy ML deps (torch/transformers/etc)."
+  Get-Content requirements.txt |
+    Where-Object { $_ -notmatch '^(\s*(torch|bitsandbytes|transformers|accelerate|sentence-transformers)\b)' } |
+    Set-Content $tmpReq
+} else {
+  Get-Content requirements.txt | Set-Content $tmpReq
+}
 pip install -r $tmpReq
 
-# Sanity check imports
-python - << 'PY'
+# Sanity check imports (PowerShell-friendly)
+$pyCheck = @'
 import sys
-print('Python', sys.version)
+print("Python", sys.version)
 try:
   import flask
-  print('Flask OK', flask.__version__)
+  print("Flask OK", flask.__version__)
 except Exception as e:
-  print('Flask import failed:', e)
+  print("Flask import failed:", e)
 try:
   import transformers
-  print('Transformers OK', transformers.__version__)
+  print("Transformers OK", transformers.__version__)
 except Exception as e:
-  print('Transformers import failed:', e)
-PY
+  print("Transformers import failed:", e)
+'@
+$tmpPy = Join-Path $env:TEMP ("sanity_check_" + (Get-Random) + ".py")
+$pyCheck | Out-File -FilePath $tmpPy -Encoding utf8 -Force
+python $tmpPy
+Remove-Item $tmpPy -ErrorAction SilentlyContinue
 
 # Verify Go (optional)
 $NoGo = $false
