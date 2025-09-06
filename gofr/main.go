@@ -12,14 +12,15 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 type Chunk struct {
-	ID        string `json:"id"`
-	Text      string `json:"text"`
-	Start     int    `json:"start"`
-	End       int    `json:"end"`
-	Language  string `json:"language"`
+	ID       string `json:"id"`
+	Text     string `json:"text"`
+	Start    int    `json:"start"`
+	End      int    `json:"end"`
+	Language string `json:"language"`
 }
 
 type IngestResponse struct {
@@ -27,15 +28,16 @@ type IngestResponse struct {
 	Text   string  `json:"text,omitempty"`
 }
 
+// detectLanguage: very simple heuristic for demo
 func detectLanguage(s string) string {
-	// simple heuristic: detect ascii/latin words
-	ascii := regexp.MustCompile(`^[\x00-\x7F]+$`).MatchString
+	ascii := regexp.MustCompile(`^[\x00-\x7F\s\p{P}]+$`).MatchString
 	if ascii(s) {
 		return "en"
 	}
 	return "auto"
 }
 
+// chunkText: chunk by bytes (simple, fast). size = bytes per chunk, overlap = bytes overlapped
 func chunkText(s string, size int, overlap int) []Chunk {
 	chunks := []Chunk{}
 	i := 0
@@ -65,7 +67,7 @@ func chunkText(s string, size int, overlap int) []Chunk {
 
 func saveUploadedFile(file multipart.File, header *multipart.FileHeader) (string, error) {
 	tmpDir := os.TempDir()
-	path := filepath.Join(tmpDir, header.Filename)
+	path := filepath.Join(tmpDir, fmt.Sprintf("%d_%s", time.Now().UnixNano(), header.Filename))
 	out, err := os.Create(path)
 	if err != nil {
 		return "", err
@@ -78,73 +80,138 @@ func saveUploadedFile(file multipart.File, header *multipart.FileHeader) (string
 	return path, nil
 }
 
-func extractText(path string) (string, error) {
-	exe := "python"
-	script := ".\\app\\utils\\extract.py"
-	if _, err := os.Stat(script); os.IsNotExist(err) {
-		script = "app/utils/extract.py"
+// findExtractor tries possible locations for the python extractor script.
+// returns full path to script or empty string
+func findExtractor() string {
+	candidates := []string{
+		"./app/utils/extract.py",               // repo root (Windows)
+		"app/utils/extract.py",                 // repo root (Linux)
+		"/app/app/utils/extract.py",            // Dockerfile copies to /app/app/utils
+		filepath.Join(".", "app", "utils", "extract.py"),
 	}
-	cmd := exec.Command(exe, script, "--file", path)
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			abs, _ := filepath.Abs(p)
+			return abs
+		}
+	}
+	return ""
+}
+
+func findPythonExec() string {
+	// try python3 then python; fallback to "python"
+	cands := []string{"python3", "python"}
+	for _, c := range cands {
+		if path, err := exec.LookPath(c); err == nil {
+			return path
+		} else {
+			_ = path // ignore
+		}
+	}
+	return "python"
+}
+
+func extractText(path string) (string, error) {
+	script := findExtractor()
+	if script == "" {
+		return "", fmt.Errorf("extractor script not found; expected app/utils/extract.py")
+	}
+
+	py := findPythonExec()
+	cmd := exec.Command(py, script, "--file", path)
+	// ensure environment PATH available in Docker too
+	cmd.Env = os.Environ()
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("extract failed: %v: %s", err, string(out))
 	}
-	var data struct{ Text string `json:"text"` }
+	var data struct {
+		Text string `json:"text"`
+	}
 	if err := json.Unmarshal(out, &data); err != nil {
-		return "", err
+		// return raw output in error detail to help debug
+		return "", fmt.Errorf("invalid extractor output: %v: %s", err, string(out))
 	}
 	return data.Text, nil
 }
 
-func ingestHandler(w http.ResponseWriter, r *http.Request) {
+func writeJSON(w http.ResponseWriter, v interface{}, code int) {
 	w.Header().Set("Content-Type", "application/json")
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write([]byte(`{"error":"method_not_allowed"}`))
+	// simple demo CORS
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+func ingestHandler(w http.ResponseWriter, r *http.Request) {
+	// handle CORS preflight
+	if r.Method == http.MethodOptions {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
+
+	if r.Method != http.MethodPost {
+		writeJSON(w, map[string]string{"error": "method_not_allowed"}, http.StatusMethodNotAllowed)
+		return
+	}
+
+	// parse form but not require file
+	if err := r.ParseMultipartForm(32 << 20); err != nil && err != http.ErrNotMultipart {
+		// for non-multipart POSTs this may be fine; keep simple error handling
+		// continue
+	}
+
 	var text string
 	file, header, err := r.FormFile("file")
 	if err == nil {
 		defer file.Close()
 		path, err := saveUploadedFile(file, header)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(`{"error":"upload_failed"}`))
+			writeJSON(w, map[string]string{"error": "upload_failed", "detail": err.Error()}, http.StatusBadRequest)
 			return
 		}
+		// attempt extraction
 		text, err = extractText(path)
+		// remove temp file (best-effort)
+		_ = os.Remove(path)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(fmt.Sprintf(`{"error":"extract_failed","detail":%q}`, err.Error())))
+			writeJSON(w, map[string]string{"error": "extract_failed", "detail": err.Error()}, http.StatusBadRequest)
 			return
 		}
 	} else {
-		// maybe text in form
+		// fallback: allow plain text in form field "text"
 		if err := r.ParseForm(); err == nil {
 			text = r.FormValue("text")
 		}
 	}
+
 	text = strings.TrimSpace(text)
 	if text == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error":"no_input"}`))
+		writeJSON(w, map[string]string{"error": "no_input"}, http.StatusBadRequest)
 		return
 	}
-	chs := chunkText(text, 1200, 200)
-	res := IngestResponse{Chunks: chs, Text: text}
-	enc := json.NewEncoder(w)
-	enc.Encode(res)
+
+	// chunk size and overlap in bytes (keeps logic compatible with earlier code)
+	chunks := chunkText(text, 1200, 200)
+	res := IngestResponse{Chunks: chunks, Text: ""} // avoid dumping full text by default
+	writeJSON(w, res, http.StatusOK)
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"status":"ok"}`))
+	writeJSON(w, map[string]string{"status": "ok"}, http.StatusOK)
 }
 
 func main() {
 	port := os.Getenv("PORT")
-	if port == "" { port = "8090" }
+	if port == "" {
+		port = os.Getenv("INGEST_PORT")
+	}
+	if port == "" {
+		port = "8090"
+	}
 	http.HandleFunc("/ingest", ingestHandler)
 	http.HandleFunc("/health", healthHandler)
 	log.Printf("Go ingest service listening on :%s", port)
