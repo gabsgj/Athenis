@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Legal Simplifier</title>
+  <link rel="stylesheet" href="/static/css/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Legal Jargon Simplifier</h1>
+  </header>
+  <main>
+    <section class="controls">
+      <div>
+        <label>API Key</label>
+        <input type="password" id="apiKey" placeholder="API Key" />
+      </div>
+      <div>
+        <label>Task</label>
+        <select id="task">
+          <option value="simplify">Simplify</option>
+          <option value="risk">Risk</option>
+          <option value="summarize">Summarize</option>
+        </select>
+      </div>
+      <div>
+        <label>Language</label>
+        <select id="language">
+          <option value="auto">Auto</option>
+          <option value="en">English</option>
+          <option value="es">Spanish</option>
+          <option value="fr">French</option>
+          <option value="de">German</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="input">
+      <div class="upload">
+        <input type="file" id="fileInput" />
+        <button id="uploadBtn">Upload</button>
+      </div>
+      <div class="paste">
+        <textarea id="textInput" rows="8" placeholder="Paste text here..."></textarea>
+        <button id="runBtn">Run</button>
+        <button id="streamBtn">Stream</button>
+      </div>
+    </section>
+
+    <section class="output">
+      <div class="column">
+        <h3>Original</h3>
+        <pre id="original"></pre>
+      </div>
+      <div class="column">
+        <h3>Plain Language</h3>
+        <pre id="plain"></pre>
+      </div>
+    </section>
+
+    <section class="risks">
+      <h3>Risks</h3>
+      <ul id="risks"></ul>
+      <button id="exportBtn">Export Report</button>
+    </section>
+  </main>
+  <script src="/static/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+version: '3.9'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: legal-simplifier-flask:dev
+    environment:
+      - API_KEY=${API_KEY}
+      - MODEL_NAME=${MODEL_NAME:-TinyLlama/TinyLlama-1.1B-Chat-v1.0}
+      - QUANTIZE=${QUANTIZE:-8bit}
+      - REDIS_URL=${REDIS_URL}
+      - EXTERNAL_LLM_API_URL=${EXTERNAL_LLM_API_URL}
+      - GOFR_URL=http://gofr:8090
+      - RATE_LIMIT_PER_MIN=${RATE_LIMIT_PER_MIN:-60}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+    ports:
+      - "8080:8080"
+    profiles: ["cpu", "gpu"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: ["gpu"]
+              count: 0
+    depends_on:
+      - gofr
+
+  gofr:
+    build:
+      context: ./gofr
+      dockerfile: Dockerfile
+    image: legal-simplifier-gofr:dev
+    profiles: ["cpu", "gpu"]
+
+profiles:
+  gpu: {}
+  cpu: {}

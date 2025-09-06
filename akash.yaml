@@ -1,0 +1,89 @@
+version: "2.0"
+
+services:
+  web:
+    image: ghcr.io/OWNER/REPO:latest
+    expose:
+      - port: 8080
+        as: 8080
+        to:
+          - global: true
+    env:
+      - API_KEY=${API_KEY}
+      - MODEL_NAME=${MODEL_NAME}
+      - QUANTIZE=${QUANTIZE}
+      - REDIS_URL=${REDIS_URL}
+      - EXTERNAL_LLM_API_URL=${EXTERNAL_LLM_API_URL}
+      - GOFR_URL=http://gofr:8090
+      - RATE_LIMIT_PER_MIN=${RATE_LIMIT_PER_MIN}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL}
+    resources:
+      cpu:
+        units: 2
+      memory:
+        size: 16Gi
+      storage:
+        size: 20Gi
+      gpu:
+        units: 1
+
+  gofr:
+    image: ghcr.io/OWNER/REPO-gofr:latest
+    expose:
+      - port: 8090
+        as: 8090
+        to:
+          - service: web
+    resources:
+      cpu:
+        units: 0.5
+      memory:
+        size: 512Mi
+      storage:
+        size: 1Gi
+
+profiles:
+  compute:
+    web:
+      resources:
+        cpu:
+          units: 2
+        memory:
+          size: 16Gi
+        storage:
+          size: 20Gi
+        gpu:
+          units: 1
+    gofr:
+      resources:
+        cpu:
+          units: 0.5
+        memory:
+          size: 512Mi
+        storage:
+          size: 1Gi
+  placement:
+    dcloud:
+      attributes:
+        host: akash
+      signedBy:
+        anyOf:
+          - akash1365yvmc8n6dq36y60c9e5hzs25s9a6a6d46h8x
+      pricing:
+        web:
+          denom: uakt
+          amount: 1000
+        gofr:
+          denom: uakt
+          amount: 100
+
+deployment:
+  web:
+    dcloud:
+      profile: web
+      count: 1
+  gofr:
+    dcloud:
+      profile: gofr
+      count: 1
