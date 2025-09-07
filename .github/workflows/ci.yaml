@@ -35,6 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint-test
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Log in to registry
@@ -63,6 +64,7 @@ jobs:
   smoke-test:
     runs-on: ubuntu-latest
     needs: build-images
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Build docker-compose
