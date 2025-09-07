@@ -1,5 +1,7 @@
 import os
 from functools import wraps
+from werkzeug.utils import secure_filename
+import tempfile
 
 # Optional torch import for GPU support
 try:
@@ -23,6 +25,7 @@ from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from app.utils.security import require_api_key, AuthError
 from app.utils.sse import sse_from_text_stream
 from app.utils.cache import Cache
+from app.utils.extract import extract_pdf, extract_docx, extract_txt, maybe_truncate
 from app.utils.rate_limiter import RateLimiter
 from app.utils.metrics import Metrics
 from app.models.model_manager import ModelManager, ModelError
@@ -129,6 +132,46 @@ def create_app():
                 return ok({"result": result})
         except ModelError as e:
             return error_response("E500_MODEL_ERROR", str(e), 500)
+
+    @app.route("/gofr/ingest", methods=["POST", "OPTIONS"])
+    @apply_rate_limit
+    def ingest():
+        # CORS preflight
+        if request.method == "OPTIONS":
+            resp = jsonify({})
+            resp.headers["Access-Control-Allow-Origin"] = "*"
+            resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+            resp.headers["Access-Control-Allow-Headers"] = "Content-Type, X-API-Key"
+            return resp, 204
+
+        # OPTIONAL auth (same as other API). If you want uploads protected, uncomment next line:
+        # require_api_key(lambda: None)();  # or decorate the function with @require_api_key
+
+        if "file" not in request.files:
+            return error_response("E400_NO_FILE", "No file provided", 400)
+        f = request.files["file"]
+        if not f.filename:
+            return error_response("E400_EMPTY_NAME", "Empty filename", 400)
+
+        filename = secure_filename(f.filename)
+        with tempfile.TemporaryDirectory() as tdir:
+            path = os.path.join(tdir, filename)
+            f.save(path)
+            ext = os.path.splitext(filename)[1].lower()
+
+            try:
+                if ext == ".pdf":
+                    text = extract_pdf(path)
+                elif ext == ".docx":
+                    text = extract_docx(path)
+                else:
+                    text = extract_txt(path)
+            except Exception as e:
+                return error_response("E422_EXTRACT_FAIL", f"Extraction failed: {e}", 422)
+
+        # Keep output reasonable
+        text = maybe_truncate(text, int(os.getenv("MAX_EXTRACT_BYTES", str(5 * 1024 * 1024))))
+        return ok({"text": text})
 
     @app.route("/api/simplify", methods=["POST"])
     @require_api_key
