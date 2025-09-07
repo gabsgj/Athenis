@@ -37,6 +37,8 @@ from flask_cors import CORS
 from app.models.model_manager import ModelManager, ModelError
 from app.utils.security import require_api_key, AuthError, error_response
 from app.utils.sse import sse_event, sse_from_text_stream
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from app.metrics import Metrics
 
 
 # Risk analyzer (teammate 2)
@@ -50,6 +52,7 @@ app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
 model = ModelManager()
+metrics = Metrics()
 
 # ---------------------------
 # Helper functions
@@ -136,6 +139,11 @@ def health():
 @app.get("/api/v1/health")
 def health_v1():
     return jsonify({"ok": True, "service": "backend", "streaming": True})
+
+@app.get("/metrics")
+def metrics_endpoint():
+    data = generate_latest(metrics.registry)
+    return Response(data, mimetype=CONTENT_TYPE_LATEST)
 
 # ---------------------------
 # Frontend: serve UI
