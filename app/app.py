@@ -7,8 +7,8 @@ from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
 
 from app.models.model_manager import ModelManager, ModelError
-from utils.security import require_api_key, AuthError, error_response
-from utils.sse import sse_event, sse_from_text_stream
+from app.utils.security import require_api_key, AuthError, error_response
+from app.utils.sse import sse_event, sse_from_text_stream
 
 # Do NOT modify teammate 2's logic; just import and call.
 try:
@@ -88,6 +88,37 @@ def _unhandled(e: Exception):
 @app.get("/health")
 def health():
     return jsonify({"ok": True, "service": "backend", "streaming": True})
+
+@app.get("/api/v1/health")
+def health_v1():
+    return jsonify({"ok": True, "service": "backend", "streaming": True})
+
+@app.post("/api/v1/inference")
+def inference_v1():
+    require_api_key(request)
+    data = request.get_json(silent=True) or {}
+    text = (data.get("text") or "").strip()
+    task = (data.get("task") or "").strip()
+    
+    if not text:
+        raise AuthError(status_code=400, error_code="E400_MISSING_TEXT",
+                        message="Field 'text' is required and must be non-empty.")
+    
+    # Handle different tasks
+    try:
+        if task == "simplify":
+            result = model.analyze_document(text=text, mode="simplify", stream=False)
+        elif task == "summarize": 
+            result = model.analyze_document(text=text, mode="summarize", stream=False)
+        elif task == "translate":
+            target_lang = _translate_target_lang(data)
+            result = model.analyze_document(text=text, mode="translate", stream=False, target_lang=target_lang)
+        else:
+            result = model.analyze_document(text=text, mode="simplify", stream=False)
+            
+        return jsonify({"ok": True, "task": task, "result": result})
+    except ModelError as e:
+        return error_response("E502_LLM_FAILURE", f"{e}", status=502)
 
 # ---------------------------
 # Core endpoints
@@ -222,3 +253,12 @@ def full_analysis():
             "risk": risk
         }
     })
+
+
+def create_app():
+    """Create and configure the Flask app for testing"""
+    return app
+
+
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5000)

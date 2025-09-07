@@ -1,4 +1,4 @@
-const cfg = (window.APP_CONFIG || {});
+hhconst cfg = (window.APP_CONFIG || {});
 const API_BASE = cfg.API_BASE_URL || '/api/v1';
 const GOFR_BASE = cfg.GOFR_BASE_URL || 'http://localhost:9090';
 const REQUIRE_KEY = !!cfg.REQUIRE_API_KEY;

@@ -5,8 +5,7 @@ from app.utils.cache import Cache
 
 def test_process_shape():
     os.environ['EXTERNAL_LLM_API_URL'] = ''
-    mm = ModelManager(cache=Cache())
-    res = mm.process('This Agreement shall automatically renew every year unless terminated.', 'simplify', 'en')
-    assert 'overview' in res
-    assert 'plain_language' in res
-    assert 'risks_detected' in res
+    mm = ModelManager()
+    res = mm.analyze_document('This Agreement shall automatically renew every year unless terminated.', 'simplify', stream=False)
+    assert isinstance(res, str)
+    assert len(res) > 0

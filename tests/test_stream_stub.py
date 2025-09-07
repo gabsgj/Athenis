@@ -4,6 +4,6 @@ import os
 
 def test_stream_tokens_stub(monkeypatch):
     os.environ['FAST_TEST'] = '1'
-    mm = ModelManager(cache=Cache())
-    tokens = list(mm.stream_process('hello world', 'simplify', 'en'))
+    mm = ModelManager()
+    tokens = list(mm.analyze_document('hello world', 'simplify', stream=True))
     assert isinstance(tokens, list)
