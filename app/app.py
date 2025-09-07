@@ -1,155 +1,224 @@
+# app/app.py
 import os
 import json
-import time
-from functools import wraps
-from queue import Queue
-from threading import Thread
-from typing import Dict, Any, Generator
+from typing import Generator, Any, Dict
 
-from flask import Flask, jsonify, request, Response, send_from_directory, render_template
+from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
-from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
-from app.models.model_manager import ModelManager
-from app.utils.cache import Cache
-from app.utils.rate_limiter import RateLimiter
-from app.utils.security import require_api_key, set_security_headers
-from app.utils.sse import sse_format
-from app.utils.metrics import Metrics
-from app.utils.logging import logger
+from app.models.model_manager import ModelManager, ModelError
+from utils.security import require_api_key, AuthError, error_response
+from utils.sse import sse_event, sse_from_text_stream
 
+# Do NOT modify teammate 2's logic; just import and call.
+try:
+    from app.services.risk_analyzer import analyze_risk  # type: ignore
+except Exception:
+    analyze_risk = None  # handled gracefully below
 
-def create_app():
-    app = Flask(__name__, static_folder="static", template_folder="templates")
-    CORS(app)
+app = Flask(__name__)
+# Broad CORS for frontend teammate; restrict in prod as needed
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
-    # Security headers after each request
-    app.after_request(set_security_headers)
+model = ModelManager()
 
-    # Metrics
-    metrics = Metrics()
+def _wants_streaming(req) -> bool:
+    # priority: explicit query/body, then Accept header
+    qs = req.args.get("stream")
+    if qs is not None:
+        return qs.lower() in {"1", "true", "yes"}
+    try:
+        body = req.get_json(silent=True) or {}
+        if isinstance(body, dict):
+            if str(body.get("stream", "")).lower() in {"1", "true", "yes"}:
+                return True
+    except Exception:
+        pass
+    accept = (req.headers.get("Accept") or "").lower()
+    return "text/event-stream" in accept
 
-    # Cache (LRU or Redis)
-    cache = Cache(os.getenv("REDIS_URL"))
+def _get_text() -> str:
+    if not request.is_json:
+        raise AuthError(status_code=415, error_code="E415_UNSUPPORTED_MEDIA_TYPE",
+                        message="Content-Type must be application/json")
+    data = request.get_json(silent=True) or {}
+    text = (data.get("text") or "").strip()
+    if not text:
+        raise AuthError(status_code=400, error_code="E400_MISSING_TEXT",
+                        message="Field 'text' is required and must be non-empty.")
+    return text
 
-    # Model manager
-    model = ModelManager(cache=cache)
+def _translate_target_lang(data: Dict[str, Any]) -> str:
+    tgt = (data.get("target_lang") or "").strip().lower()
+    if tgt in {"en", "hi"}:
+        return tgt
+    # If not provided, infer from text
+    text = (data.get("text") or "")
+    # default target: opposite of detected script
+    from app.models.model_manager import _looks_hindi
+    return "en" if _looks_hindi(text) else "hi"
 
-    # Rate limiter
-    rate = RateLimiter(int(os.getenv("RATE_LIMIT_PER_MIN", "60")))
+def _stream_response(gen: Generator[str, None, None], event: str = "chunk") -> Response:
+    return Response(
+        stream_with_context(sse_from_text_stream(gen, event=event)),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
 
-    def rate_limited(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            identifier = request.headers.get("x-api-key") or request.remote_addr
-            if not rate.allow(identifier):
-                return jsonify({
-                    "error": "rate_limited",
-                    "message": "Too many requests. Please slow down.",
-                    "retry_after": 60
-                }), 429
-            return f(*args, **kwargs)
-        return wrapper
+@app.errorhandler(AuthError)
+def _auth_error_handler(err: AuthError):
+    return jsonify({
+        "ok": False,
+        "error": {"code": err.error_code, "message": err.message}
+    }), err.status_code
 
-    @app.route("/")
-    def index():
-        api_base_url = os.getenv("API_BASE_URL", "/api/v1")
-        gofr_base_url = os.getenv("GOFR_BASE_URL", "http://localhost:9090")
-        require_api_key = os.getenv("API_KEY_REQUIRED", "true").lower() in ("1", "true", "yes")
-        github_owner = os.getenv("GITHUB_OWNER", "gabsgj")
-        github_repo = os.getenv("GITHUB_REPO", "hackOdisha")
-        return render_template(
-            "index.html",
-            api_base_url=api_base_url,
-            gofr_base_url=gofr_base_url,
-            require_api_key=require_api_key,
-            github_owner=github_owner,
-            github_repo=github_repo,
+@app.errorhandler(404)
+def _not_found(_):
+    return jsonify({"ok": False, "error": {"code": "E404_NOT_FOUND", "message": "Not found"}}), 404
+
+@app.errorhandler(Exception)
+def _unhandled(e: Exception):
+    # Don’t leak internals
+    return jsonify({"ok": False, "error": {"code": "E500_INTERNAL", "message": "Internal server error"}}), 500
+
+@app.get("/health")
+def health():
+    return jsonify({"ok": True, "service": "backend", "streaming": True})
+
+# ---------------------------
+# Core endpoints
+# ---------------------------
+
+@app.post("/api/simplify")
+def simplify():
+    require_api_key(request)
+    text = _get_text()
+    stream = _wants_streaming(request)
+    try:
+        if stream:
+            gen = model.analyze_document(text=text, mode="simplify", stream=True)
+            return _stream_response(gen, event="simplify")
+        out = model.analyze_document(text=text, mode="simplify", stream=False)
+        return jsonify({"ok": True, "mode": "simplify", "result": out})
+    except ModelError as e:
+        return error_response("E502_LLM_FAILURE", f"{e}", status=502)
+
+@app.post("/api/summarize")
+def summarize():
+    require_api_key(request)
+    text = _get_text()
+    stream = _wants_streaming(request)
+    try:
+        if stream:
+            gen = model.analyze_document(text=text, mode="summarize", stream=True)
+            return _stream_response(gen, event="summarize")
+        out = model.analyze_document(text=text, mode="summarize", stream=False)
+        return jsonify({"ok": True, "mode": "summarize", "result": out})
+    except ModelError as e:
+        return error_response("E502_LLM_FAILURE", f"{e}", status=502)
+
+@app.post("/api/translate")
+def translate():
+    require_api_key(request)
+    if not request.is_json:
+        raise AuthError(status_code=415, error_code="E415_UNSUPPORTED_MEDIA_TYPE",
+                        message="Content-Type must be application/json")
+    data = request.get_json(silent=True) or {}
+    text = (data.get("text") or "").strip()
+    if not text:
+        raise AuthError(status_code=400, error_code="E400_MISSING_TEXT",
+                        message="Field 'text' is required and must be non-empty.")
+    target_lang = _translate_target_lang(data)
+    stream = _wants_streaming(request)
+
+    try:
+        if stream:
+            gen = model.analyze_document(text=text, mode="translate", stream=True, target_lang=target_lang)
+            return _stream_response(gen, event="translate")
+        out = model.analyze_document(text=text, mode="translate", stream=False, target_lang=target_lang)
+        return jsonify({"ok": True, "mode": "translate", "target_lang": target_lang, "result": out})
+    except ModelError as e:
+        return error_response("E502_LLM_FAILURE", f"{e}", status=502)
+
+@app.post("/api/full-analysis")
+def full_analysis():
+    """
+    Returns JSON with:
+      - simplified
+      - summary
+      - risk (from teammate 2)
+    Supports SSE streaming:
+      event: simplify, summarize, risk, done
+    """
+    require_api_key(request)
+    text = _get_text()
+    stream = _wants_streaming(request)
+
+    def gen_stream():
+        # Simplify
+        try:
+            for chunk in model.analyze_document(text=text, mode="simplify", stream=True):
+                yield sse_event(chunk, event="simplify")
+        except ModelError as e:
+            yield sse_event({"code": "E502_LLM_FAILURE", "message": str(e)}, event="error")
+            yield sse_event("", event="done")
+            return
+
+        # Summarize
+        try:
+            for chunk in model.analyze_document(text=text, mode="summarize", stream=True):
+                yield sse_event(chunk, event="summarize")
+        except ModelError as e:
+            yield sse_event({"code": "E502_LLM_FAILURE", "message": str(e)}, event="error")
+            yield sse_event("", event="done")
+            return
+
+        # Risk (not streamed; send once)
+        try:
+            if analyze_risk is None:
+                raise RuntimeError("Risk analyzer unavailable")
+            risk = analyze_risk(text)
+            yield sse_event(risk, event="risk")
+        except Exception as e:
+            yield sse_event({"code": "E503_RISK_ANALYZER_UNAVAILABLE", "message": f"{e}"}, event="error")
+
+        yield sse_event("", event="done")
+
+    if stream:
+        return Response(
+            stream_with_context(gen_stream()),
+            mimetype="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache, no-transform",
+                "X-Accel-Buffering": "no",
+                "Access-Control-Allow-Origin": "*",
+            },
         )
 
-    @app.route("/api/v1/health")
-    def health():
-        gpu = model.gpu_info()
-        try:
-            metrics.gpu_memory_used.set(gpu.get("memory", 0))
-            metrics.requests_total.labels(endpoint="health", method="GET", status="200").inc()
-        except Exception:
-            pass
-        return jsonify({"status": "ok", "gpu": gpu, "model": model.model_name})
+    # Sync JSON path
+    try:
+        simplified = model.analyze_document(text=text, mode="simplify", stream=False)
+        summary = model.analyze_document(text=text, mode="summarize", stream=False)
+    except ModelError as e:
+        return error_response("E502_LLM_FAILURE", f"{e}", status=502)
 
-    @app.route("/metrics")
-    def metrics_endpoint():
-        return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
+    try:
+        if analyze_risk is None:
+            raise RuntimeError("Risk analyzer unavailable")
+        risk = analyze_risk(text)
+    except Exception as e:
+        return error_response("E503_RISK_ANALYZER_UNAVAILABLE", f"{e}", status=503)
 
-    @app.route("/api/v1/upload", methods=["POST"])
-    @require_api_key
-    @rate_limited
-    def upload():
-        # Forward to Go service or handle text directly
-        file = request.files.get("file")
-        text = request.form.get("text")
-        go_url = os.getenv("GOFR_URL", "http://gofr:8090")
-        import requests as pyrequests
-        if file:
-            files = {"file": (file.filename, file.stream, file.mimetype)}
-            resp = pyrequests.post(f"{go_url}/ingest", files=files, timeout=120)
-            data = resp.json()
-            import uuid
-            data.update({"upload_id": str(uuid.uuid4())})
-            return jsonify(data), resp.status_code
-        elif text:
-            resp = pyrequests.post(f"{go_url}/ingest", data={"text": text}, timeout=120)
-            data = resp.json()
-            import uuid
-            data.update({"upload_id": str(uuid.uuid4())})
-            return jsonify(data), resp.status_code
-        else:
-            return jsonify({"error": "no_input", "message": "Provide file or text"}), 400
-
-    @app.route("/api/v1/inference", methods=["POST"])
-    @require_api_key
-    @rate_limited
-    def inference():
-        payload = request.get_json(force=True)
-        text = payload.get("text", "")
-        task = payload.get("task", "simplify")
-        language = payload.get("language", "auto")
-        start = time.time()
-        try:
-            result = model.process(text=text, task=task, language=language)
-            metrics.request_latency.observe(time.time() - start)
-            metrics.requests_total.labels(endpoint="inference", method="POST", status="200").inc()
-            return jsonify(result)
-        except Exception as e:
-            logger.exception("inference_error")
-            metrics.requests_total.labels(endpoint="inference", method="POST", status="500").inc()
-            return jsonify({"error": "inference_error", "message": str(e)}), 500
-
-    @app.route("/api/v1/stream", methods=["POST"])
-    @require_api_key
-    @rate_limited
-    def stream():
-        payload = request.get_json(force=True)
-        text = payload.get("text", "")
-        task = payload.get("task", "simplify")
-        language = payload.get("language", "auto")
-
-        def generate() -> Generator[str, None, None]:
-            try:
-                yield sse_format("progress", {"stage": "start"})
-                for event in model.stream_process(text=text, task=task, language=language):
-                    yield sse_format("token", event)
-                yield sse_format("progress", {"stage": "finish"})
-                yield sse_format("done", "true")
-            except Exception as e:
-                yield sse_format("error", str(e))
-        return Response(generate(), mimetype="text/event-stream")
-
-    return app
-
-
-app = create_app()
-
-if __name__ == "__main__":
-    port = int(os.getenv("PORT", "8080"))
-    app.run(host="0.0.0.0", port=port)
+    return jsonify({
+        "ok": True,
+        "mode": "full-analysis",
+        "result": {
+            "simplified": simplified,
+            "summary": summary,
+            "risk": risk
+        }
+    })
