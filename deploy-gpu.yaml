@@ -1,0 +1,51 @@
+---
+version: "2.0"
+
+services:
+  athenis:
+    image: ghcr.io/gabsgj/hackodisha/athenis:latest
+    expose:
+      - port: 8080
+        as: 80
+        to:
+          - global: true
+    env:
+      - API_KEY=your-production-key-change-me
+      - MODEL_NAME=microsoft/DialoGPT-medium
+      - QUANTIZE=8bit
+      - RATE_LIMIT_PER_MIN=10
+      - LOG_LEVEL=info
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:64
+      - CORS_ORIGINS=*
+
+profiles:
+  compute:
+    athenis:
+      resources:
+        cpu:
+          units: 2000
+        memory:
+          size: 8Gi
+        storage:
+          size: 20Gi
+        gpu:
+          units: 1
+          attributes:
+            vendor:
+              nvidia:
+                - model: rtx4090
+                - model: a100
+                - model: h100
+
+  placement:
+    akash:
+      pricing:
+        athenis:
+          denom: uakt
+          amount: 50000
+
+deployment:
+  athenis:
+    akash:
+      profile: athenis
+      count: 1

@@ -1,0 +1,47 @@
+---
+version: "2.0"
+
+services:
+  athenis:
+    image: python:3.11-slim
+    expose:
+      - port: 8080
+        as: 80
+        to:
+          - global: true
+    env:
+      - API_KEY=test-key-123
+      - FAST_TEST=1
+      - CORS_ORIGINS=*
+    command:
+      - "/bin/sh"
+      - "-c"
+      - |
+        apt-get update && apt-get install -y --no-install-recommends git curl && \
+        git clone https://github.com/gabsgj/hackOdisha.git /app && \
+        cd /app && pip install --no-cache-dir -r requirements-min.txt && \
+        gunicorn -w 2 -k gthread -b 0.0.0.0:8080 app.wsgi:application
+
+profiles:
+  compute:
+    athenis:
+      resources:
+        cpu:
+          units: 1000
+        memory:
+          size: 1Gi
+        storage:
+          size: 2Gi
+
+  placement:
+    akash:
+      pricing:
+        athenis:
+          denom: uakt
+          amount: 5000
+
+deployment:
+  athenis:
+    akash:
+      profile: athenis
+      count: 1

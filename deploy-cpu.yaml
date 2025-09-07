@@ -1,0 +1,43 @@
+---
+version: "2.0"
+
+services:
+  athenis:
+    image: ghcr.io/gabsgj/hackodisha/athenis:latest
+    expose:
+      - port: 8080
+        as: 80
+        to:
+          - global: true
+    env:
+      - API_KEY=your-production-key-change-me
+      - EXTERNAL_LLM_API_URL=https://api.openai.com/v1/chat/completions
+      - OPENAI_API_KEY=your-openai-key-here
+      - MODEL_NAME=gpt-3.5-turbo
+      - RATE_LIMIT_PER_MIN=20
+      - LOG_LEVEL=info
+      - CORS_ORIGINS=*
+
+profiles:
+  compute:
+    athenis:
+      resources:
+        cpu:
+          units: 1000
+        memory:
+          size: 2Gi
+        storage:
+          size: 5Gi
+
+  placement:
+    akash:
+      pricing:
+        athenis:
+          denom: uakt
+          amount: 10000
+
+deployment:
+  athenis:
+    akash:
+      profile: athenis
+      count: 1
