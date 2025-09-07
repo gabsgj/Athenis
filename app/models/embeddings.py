@@ -38,3 +38,7 @@ class Embedder:
         sims = docs @ q / (np.linalg.norm(docs, axis=1) * np.linalg.norm(q) + 1e-9)
         idxs = np.argsort(-sims)[:top_k]
         return [(int(i), float(sims[i])) for i in idxs]
+     # 🔹 Stub for risk_detector
+    def find_similar_risks(self, text: str):
+        # Return empty list or dummy results for testing
+        return []

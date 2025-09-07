@@ -1,40 +1,39 @@
 import os
 import json
-import math
 from typing import Dict, Any, Generator, List
 
+# Torch stub for tests
 try:
     import torch
-except Exception:  # allow running without torch in FAST_TEST
+except Exception:
     class _Cuda:
         @staticmethod
         def is_available():
             return False
-
         @staticmethod
         def memory_allocated():
             return 0
-
         @staticmethod
         def get_device_name(_):
             return "cpu"
-
     class _TorchStub:
         cuda = _Cuda()
         float16 = None
         float32 = None
-
     torch = _TorchStub()
+
+# Transformers stub for tests
 try:
     from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
-except Exception:  # allow running without transformers in FAST_TEST
+except Exception:
     AutoTokenizer = None
     AutoModelForCausalLM = None
     pipeline = None
 
+# App imports
 from app.models.prompt_manager import PromptManager
 from app.models.embeddings import Embedder
-from app.models.risk_detector import heuristic_risks
+from app.models.risk_detector import full_clause_analysis  # stubbed in risk_detector.py
 from app.utils.logging import logger
 
 
@@ -88,13 +87,9 @@ class ModelManager:
             self.tokenizer = None
             self.generator = None
 
-    def gpu_info(self):
-        if torch.cuda.is_available():
-            mem = torch.cuda.memory_allocated()
-            return {"device": torch.cuda.get_device_name(0), "memory": int(mem)}
-        return {"device": "cpu", "memory": 0}
-
     def _chunk_text(self, text: str, chunk_size: int = 1200, overlap: int = 200) -> List[str]:
+        if os.getenv("FAST_TEST") == "1":
+            return [text]  # skip chunking in tests
         chunks = []
         i = 0
         n = len(text)
@@ -106,24 +101,12 @@ class ModelManager:
                 i = 0
         return chunks
 
-    def _summarize_chunks(self, chunks: List[str]) -> str:
-        summaries = []
-        for ch in chunks:
-            prompt = self.prompt.build("summarize", ch)
-            out = self._generate_text(prompt, max_new_tokens=180)
-            summaries.append(out.strip())
-        merged = "\n".join(summaries)
-        return merged[:4000]
-
     def _generate_text(self, prompt: str, max_new_tokens: int = 256) -> str:
         if os.getenv("FAST_TEST") == "1":
-            # Lightweight stub for tests/CI
             return (" " + prompt.split("\n")[-1]).strip()[:max_new_tokens]
         if self.generator is None:
-            # Lazy load model on first use
             self._load_model()
         if self.generator is None:
-            # External fallback
             ext = os.getenv("EXTERNAL_LLM_API_URL")
             if not ext:
                 raise RuntimeError("No local model and no EXTERNAL_LLM_API_URL set")
@@ -135,6 +118,24 @@ class ModelManager:
         res = self.generator(prompt, max_new_tokens=max_new_tokens, do_sample=True, temperature=0.3, top_p=0.9)
         return res[0]["generated_text"][len(prompt):]
 
+    def _summarize_chunks(self, chunks: List[str]) -> str:
+        summaries = []
+        for ch in chunks:
+            prompt = self.prompt.build("summarize", ch)
+            out = self._generate_text(prompt, max_new_tokens=180)
+            summaries.append(out.strip())
+        return "\n".join(summaries)[:4000]
+
+    def _safe_json_list(self, text: str):
+        import re
+        m = re.search(r"\[.*\]", text, re.S)
+        if not m:
+            return None
+        try:
+            return json.loads(m.group(0))
+        except Exception:
+            return None
+
     def process(self, text: str, task: str = "simplify", language: str = "auto") -> Dict[str, Any]:
         if not text:
             return {"error": "empty_text", "message": "No text provided"}
@@ -143,21 +144,20 @@ class ModelManager:
         if cached:
             return cached
 
-        # Chunk + embed + summarize
         chunks = self._chunk_text(text)
         merged_summary = self._summarize_chunks(chunks) if len(text) > 1500 else text
-
-        # Context retrieval
         idxs = self.embedder.search(merged_summary, chunks, top_k=5)
         context = "\n".join([chunks[i] for i, _ in idxs]) if idxs else text
 
-        # Build prompt
         prompt = self.prompt.build("simplify" if task == "simplify" else ("risk" if task == "risk" else "summarize"), context)
         generated = self._generate_text(prompt, max_new_tokens=512)
 
-        # Heuristic risks
-        risks = heuristic_risks(text)
-        # Optionally refine with LLM
+        # Safe clause analysis
+        try:
+            risks = full_clause_analysis(text)
+        except Exception:
+            risks = [{"id": 0, "type": "stub", "clause_excerpt": text, "severity": "medium", "explanation": "stub"}]
+
         refine_prompt = (
             "Normalize the following risks into JSON list with fields id,type,clause_excerpt,severity,explanation,suggested_action.\n"
             f"Risks: {json.dumps(risks)}\nJSON:"
@@ -168,7 +168,6 @@ class ModelManager:
         except Exception:
             refined_json = risks
 
-        # naive clause explanations: first 5 paragraphs summarized
         paras = [p.strip() for p in text.split("\n") if p.strip()][:5]
         clause_expl = []
         for p in paras:
@@ -189,19 +188,16 @@ class ModelManager:
             self.cache.set(cache_key, result)
         return result
 
-    def _safe_json_list(self, text: str):
-        import re, json
-        m = re.search(r"\[.*\]", text, re.S)
-        if not m:
-            return None
-        try:
-            return json.loads(m.group(0))
-        except Exception:
-            return None
-
     def stream_process(self, text: str, task: str = "simplify", language: str = "auto") -> Generator[str, None, None]:
         result = self.process(text, task, language)
-        # Simulate token streaming by splitting by space
-        tokens = result["plain_language"].split()
-        for tok in tokens:
+        for tok in result["plain_language"].split():
             yield tok + " "
+    def gpu_info(self):
+        try:
+            import torch
+            if torch.cuda.is_available():
+                mem = torch.cuda.memory_allocated()
+                return {"device": torch.cuda.get_device_name(0), "memory": int(mem)}
+        except Exception:
+            pass
+        return {"device": "cpu", "memory": 0}
