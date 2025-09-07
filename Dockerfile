@@ -45,5 +45,5 @@ EXPOSE 8080
 USER appuser
 CMD ["python3", "-m", "app.app"]
 
-# Select target stage: if FAST_BUILD=1, use cpu stage; else gpu
-FROM ${FAST_BUILD:+cpu}${FAST_BUILD:+=gpu}
+# Default to CPU stage as final image (Sandbox-friendly). Use --target gpu for GPU builds.
+FROM cpu
