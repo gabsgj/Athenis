@@ -1,5 +1,10 @@
 import time
 
+class ModelError(Exception):
+    """Custom exception for model-related errors."""
+    pass
+
+
 class ModelManager:
     """
     Handles text processing tasks:
