@@ -1,4 +1,5 @@
 const cfg = (window.APP_CONFIG || {});
+const DEFAULT_KEY = cfg.DEFAULT_API_KEY || null;
 const API_BASE = cfg.API_BASE_URL || '/api/v1';
 const API_CORE = '/api';
 // Route uploads via backend proxy to avoid cross-origin issues in Akash
@@ -37,6 +38,10 @@ const ui = {
   }
 };
 
+function getApiKeyValue() {
+  return (ui.apiKey && ui.apiKey.value) ? ui.apiKey.value : (DEFAULT_KEY || null);
+}
+
 function toast(msg, type = 'info', ms = 3000) {
   if (!ui.toasts) { console[type === 'error' ? 'error' : 'log'](msg); return; }
   const el = document.createElement('div');
@@ -52,19 +57,21 @@ function toast(msg, type = 'info', ms = 3000) {
 
 function headersJSON() {
   const h = { 'Content-Type': 'application/json' };
-  if (ui.apiKey && ui.apiKey.value) {
-    h['x-api-key'] = ui.apiKey.value; // backend expects this
+  const key = getApiKeyValue();
+  if (key) {
+    h['x-api-key'] = key; // backend expects this
     // optional auth mirror
-    h['Authorization'] = `Bearer ${ui.apiKey.value}`;
+    h['Authorization'] = `Bearer ${key}`;
   }
   return h;
 }
 
 function headersForm() {
   const h = {};
-  if (ui.apiKey && ui.apiKey.value) {
-    h['x-api-key'] = ui.apiKey.value;
-    h['Authorization'] = `Bearer ${ui.apiKey.value}`;
+  const key = getApiKeyValue();
+  if (key) {
+    h['x-api-key'] = key;
+    h['Authorization'] = `Bearer ${key}`;
   }
   return h;
 }
@@ -384,7 +391,8 @@ async function handleFileUpload(ev) {
     if (!file) return;
     if (file.size > 20 * 1024 * 1024) { alert('Max 20MB'); return; }
     const form = new FormData(); form.append('file', file);
-    const res = await fetch(`${GOFR_BASE}/ingest`, { method:'POST', headers: (ui.apiKey?.value ? {'X-API-Key': ui.apiKey.value} : {}), body: form });
+  const k = getApiKeyValue();
+  const res = await fetch(`${GOFR_BASE}/ingest`, { method:'POST', headers: (k ? {'X-API-Key': k} : {}), body: form });
     if (!res.ok) { alert(`Upload failed: ${res.status}`); return; }
     const data = await res.json();
     const text = (data.text) || (data.chunks?.map(c => c.text).join('\n') || '');
