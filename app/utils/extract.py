@@ -84,3 +84,17 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+import re
+
+# app/utils/extract.py
+
+def split_into_clauses(text: str):
+    """
+    Stub implementation for testing.
+    Splits text by periods or semicolons into simple clauses.
+    """
+    if not text:
+        return []
+    # Simple split: sentences ending with '.' or ';'
+    clauses = [clause.strip() for clause in text.replace(';', '.').split('.') if clause.strip()]
+    return clauses

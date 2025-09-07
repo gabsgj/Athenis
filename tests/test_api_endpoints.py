@@ -25,11 +25,14 @@ def test_translate():
     assert "result" in res.get_json()
 
 def test_full_analysis():
-    res = client.post("/api/full-analysis", 
-                      json={"text": "This is a risk analysis test."}, 
+    res = client.post("/api/full-analysis",
+                      json={"text": "This is a risk analysis test."},
                       headers={"X-API-Key": "secret123"})
     assert res.status_code == 200
     data = res.get_json()
-    assert "simplified" in data
-    assert "summary" in data
-    assert "risk_analysis" in data
+    # check inside the 'result' key
+    assert "simplified" in data["result"]
+    assert "summary" in data["result"]
+    assert "risk" in data["result"]
+
+
