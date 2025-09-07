@@ -174,6 +174,16 @@ make build
 * **Logs** → check container logs (JSON via structlog)
 * **GPU fails** → set `QUANTIZE=none` or use `EXTERNAL_LLM_API_URL` fallback
 
+## Privacy & Ethical Standards
+
+This project strictly adheres to ethical and privacy standards:
+
+- **User Data Handling:** Uploaded documents (PDF, DOCX, TXT) are processed in-memory and not stored persistently unless explicitly cached for performance. Users can clear their session cache at any time.
+- **Data Security:** All API requests require a valid API key. Sensitive data is not logged in plaintext.
+- **Compliance:** No personally identifiable information (PII) is shared with third parties. All processing happens within the container or via optional, user-configured     LLM endpoints.
+- **Responsible AI:** Risk detection and simplification outputs are generated for informational purposes. They do not constitute legal advice.
+- **Transparency:** The system logs and metrics are structured to provide operational insights without exposing user data.
+
 ---
 
 ## 📜 License
