@@ -31,7 +31,7 @@ if os.getenv("FAST_TEST") == "1":
 import json
 from typing import Generator, Any, Dict
 
-from flask import Flask, request, jsonify, Response, stream_with_context
+from flask import Flask, request, jsonify, Response, stream_with_context, send_from_directory
 from flask_cors import CORS
 
 from app.models.model_manager import ModelManager, ModelError
@@ -136,6 +136,26 @@ def health():
 @app.get("/api/v1/health")
 def health_v1():
     return jsonify({"ok": True, "service": "backend", "streaming": True})
+
+# ---------------------------
+# Frontend: serve UI
+# ---------------------------
+
+@app.get("/")
+def index():
+    return send_from_directory(os.path.join(app.root_path, "templates"), "index.html")
+
+@app.get("/main.js")
+def serve_main_js():
+    return send_from_directory(os.path.join(app.root_path, "templates"), "main.js")
+
+@app.get("/styles.css")
+def serve_styles_css():
+    return send_from_directory(os.path.join(app.root_path, "templates"), "styles.css")
+
+@app.get("/public/<path:filename>")
+def serve_public(filename: str):
+    return send_from_directory(os.path.join(app.root_path, "templates", "public"), filename)
 
 # ---------------------------
 # v1 Inference (generic task)

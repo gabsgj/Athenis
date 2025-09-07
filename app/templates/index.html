@@ -199,90 +199,235 @@
 
     <section id="app-section" class="py-8 px-6 bg-gray-50">
         <div class="max-w-7xl mx-auto">
-            <header class="site-header">
-                <div class="brand">
-                  <h1>Legal Jargon Simplifier</h1>
-                  <p class="tagline">Turn complex contracts into plain language with risk insights.</p>
+            <div id="toasts" class="fixed top-6 right-6 z-50 space-y-2"></div>
+            <div class="text-center mb-6">
+                <h2 class="text-3xl font-serif text-gray-900 mb-2">Try Athenis Now</h2>
+                <p class="text-base text-gray-600 font-sans">Experience the power of AI-driven legal document analysis</p>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-5">
+                <!-- Left Column - Inputs -->
+                <div class="space-y-3">
+                    <div class="bg-gradient-to-br from-white to-gray-50/50 rounded-xl p-6 shadow-lg border border-gray-200/60 backdrop-blur-sm">
+                        <h3 class="text-lg font-bold mb-4 text-gray-800 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-custom-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            Document Input
+                        </h3>
+
+                        <!-- Enhanced Tabs -->
+                        <div class="flex bg-gray-100/80 rounded-lg p-1 mb-4 backdrop-blur-sm">
+                            <button onclick="setActiveTab('upload')" id="upload-tab" class="flex-1 px-4 py-2.5 rounded-md bg-white text-custom-button-green font-semibold shadow-sm transition-all duration-200 hover:shadow-md">
+                                <div class="flex items-center justify-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                    </svg>
+                                    Upload Document
+                                </div>
+                            </button>
+                            <button onclick="setActiveTab('paste')" id="paste-tab" class="flex-1 px-4 py-2.5 rounded-md text-gray-600 hover:text-gray-800 font-medium transition-all duration-200 hover:bg-white/50">
+                                <div class="flex items-center justify-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Paste Text
+                                </div>
+                            </button>
+                        </div>
+
+                        <!-- Enhanced Upload Content -->
+                        <div id="upload-content" class="space-y-3">
+                            <div class="relative group">
+                                <div class="border-2 border-dashed border-custom-green/40 rounded-xl p-6 text-center transition-all duration-300 hover:border-custom-green/60 hover:bg-custom-green/5 cursor-pointer group-hover:scale-[1.02]">
+                                    <input type="file" accept=".pdf,.docx,.txt" onchange="handleFileUpload(event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                                    <div class="space-y-2">
+                                        <div class="mx-auto w-10 h-10 bg-custom-green/10 rounded-full flex items-center justify-center group-hover:bg-custom-green/20 transition-colors">
+                                            <svg class="w-5 h-5 text-custom-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <p class="text-base font-medium text-gray-700 mb-1">Drop your document here</p>
+                                            <p class="text-sm text-gray-500">or <span class="text-custom-green font-medium">browse files</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-center gap-4 text-xs text-gray-500">
+                                <div class="flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    Max 20MB
+                                </div>
+                                <div class="text-gray-300">•</div>
+                                <div class="flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    PDF, DOCX, TXT
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="paste-content" class="space-y-3 hidden">
+                            <div class="relative">
+                                <textarea id="text-input" rows="8" placeholder="Paste your legal document text here..." class="w-full p-4 border-2 border-gray-200 rounded-xl resize-y focus:ring-2 focus:ring-custom-green focus:border-custom-green transition-all duration-200 placeholder:text-gray-400 bg-white/80 backdrop-blur-sm"></textarea>
+                                <div class="absolute bottom-3 right-3 text-xs text-gray-400">
+                                    <span id="char-count">0</span> characters
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Enhanced Analysis Options -->
+                    <div class="bg-gradient-to-br from-white to-gray-50/30 rounded-xl p-6 shadow-lg border border-gray-200/60 backdrop-blur-sm">
+                        <h3 class="text-lg font-bold mb-4 text-gray-800 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-custom-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            Analysis Options
+                        </h3>
+
+                        <div class="grid md:grid-cols-2 gap-4 mb-4">
+                            <div class="space-y-2">
+                                <label class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                                    <svg class="w-4 h-4 text-custom-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                    </svg>
+                                    Analysis Task
+                                </label>
+                                <div class="relative">
+                                    <select id="task-select" class="w-full p-3 pr-10 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-custom-green focus:border-custom-green transition-all duration-200 text-sm bg-white/90 backdrop-blur-sm appearance-none cursor-pointer">
+                                        <option value="simplify">✨ Simplify Language</option>
+                                        <option value="summarize">📝 Create Summary</option>
+                                        <option value="risk">⚠️ Risk Analysis</option>
+                                        <option value="full">🔍 Full Analysis</option>
+                                    </select>
+                                    <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-2">
+                                <label class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                                    <svg class="w-4 h-4 text-custom-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"></path>
+                                    </svg>
+                                    Output Language
+                                </label>
+                                <div class="relative">
+                                    <select id="language-select" class="w-full p-3 pr-10 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-custom-green focus:border-custom-green transition-all duration-200 text-sm bg-white/90 backdrop-blur-sm appearance-none cursor-pointer">
+                                        <option value="auto">🌐 Auto Detect</option>
+                                        <option value="en">🇺🇸 English</option>
+                                        <option value="hi">🇮🇳 Hindi</option>
+                                        <option value="es">🇪🇸 Spanish</option>
+                                        <option value="de">🇩🇪 German</option>
+                                    </select>
+                                    <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2 mb-6">
+                            <label class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                                <svg class="w-4 h-4 text-custom-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                                </svg>
+                                API Key (Optional)
+                                <span class="text-xs text-gray-500 font-normal">For enhanced features</span>
+                            </label>
+                            <div class="relative">
+                                <input type="password" id="api-key" placeholder="Enter your API key for premium features..." class="w-full p-3 pr-12 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-custom-green focus:border-custom-green transition-all duration-200 text-sm bg-white/90 backdrop-blur-sm placeholder:text-gray-400">
+                                <div class="absolute inset-y-0 right-0 flex items-center px-3">
+                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Enhanced Action Buttons -->
+                        <div class="space-y-3">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <button onclick="handleAnalyze()" id="analyze-btn" title="Run comprehensive analysis" class="group relative w-full inline-flex justify-center items-center gap-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 active:scale-95 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed overflow-hidden">
+                                    <div class="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                    <svg class="h-5 w-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span class="relative z-10">Analyze Document</span>
+                                </button>
+                                <button onclick="handleStreamSimplify()" id="stream-btn" title="Real-time streaming simplification" class="group relative w-full inline-flex justify-center items-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 active:scale-95 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed overflow-hidden">
+                                    <div class="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                    <svg class="h-5 w-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2M7 4h10v16l-5-3-5 3V4z"></path>
+                                    </svg>
+                                    <span class="relative z-10">Stream Simplify</span>
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <button onclick="exportJSON()" title="Download comprehensive JSON report" class="group w-full inline-flex justify-center items-center gap-2 bg-white/80 backdrop-blur-sm text-gray-700 px-6 py-3 rounded-xl font-medium border-2 border-gray-200 hover:border-gray-300 hover:bg-white hover:shadow-md transition-all duration-300 active:scale-95 focus:outline-none focus:ring-2 focus:ring-gray-200 focus:ring-offset-2">
+                                    <svg class="h-5 w-5 group-hover:text-custom-green transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
+                                    </svg>
+                                    Export JSON
+                                </button>
+                                <button onclick="printReport()" title="Generate printable HTML report" class="group w-full inline-flex justify-center items-center gap-2 bg-white/80 backdrop-blur-sm text-gray-700 px-6 py-3 rounded-xl font-medium border-2 border-gray-200 hover:border-gray-300 hover:bg-white hover:shadow-md transition-all duration-300 active:scale-95 focus:outline-none focus:ring-2 focus:ring-gray-200 focus:ring-offset-2">
+                                    <svg class="h-5 w-5 group-hover:text-custom-green transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zM8 12h.01M16 12h.01"></path>
+                                    </svg>
+                                    Print Report
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <nav class="actions">
-                  <input type="password" id="apiKey" placeholder="API Key (dev)" aria-label="API Key" />
-                  <button id="printBtn" title="Print Report">Print</button>
-                  <button id="exportBtn" title="Export JSON">Export</button>
-                </nav>
-              </header>
-            
-              <main>
-                <section class="toolbar">
-                  <div class="field">
-                    <label for="task">Task</label>
-                    <select id="task">
-                      <option value="simplify">Simplify</option>
-                      <option value="summarize">Summarize</option>
-                      <option value="risk">Risk Analysis</option>
-                      <option value="full">Full Analysis</option>
-                    </select>
-                  </div>
-                  <div class="field">
-                    <label for="language">Language</label>
-                    <select id="language">
-                      <option value="auto">auto</option>
-                      <option value="en">en</option>
-                      <option value="hi">hi</option>
-                      <option value="es">es</option>
-                      <option value="de">de</option>
-                    </select>
-                  </div>
-                  <div class="field">
-                    <button id="analyzeBtn">Analyze</button>
-                    <button id="streamBtn">Stream Simplify</button>
-                    <span id="spinner" class="spinner" aria-live="polite" aria-busy="false" hidden>Working…</span>
-                  </div>
-                </section>
-            
-                <section class="tabs" role="tablist" aria-label="Input mode">
-                  <button role="tab" aria-selected="true" id="tab-upload" aria-controls="panel-upload" class="tab active">Upload</button>
-                  <button role="tab" aria-selected="false" id="tab-paste" aria-controls="panel-paste" class="tab">Paste text</button>
-                </section>
-            
-                <section id="panel-upload" role="tabpanel" aria-labelledby="tab-upload" class="panel">
-                  <div class="upload">
-                    <input type="file" id="fileInput" accept=".pdf,.docx,.txt" />
-                    <label><input type="checkbox" id="largeDoc"> Large doc</label>
-                    <button id="uploadBtn">Upload</button>
-                    <small>Max 20MB. Supported: PDF, DOCX, TXT.</small>
-                  </div>
-                </section>
-            
-                <section id="panel-paste" role="tabpanel" aria-labelledby="tab-paste" class="panel hidden">
-                  <textarea id="textInput" rows="10" placeholder="Paste text here…" aria-label="Paste text"></textarea>
-                </section>
-            
-                <section class="results">
-                  <div class="col left">
-                    <div class="section-header">
-                      <h3>Original</h3>
-                      <input id="searchOriginal" type="search" placeholder="Search…" aria-label="Search original" />
+
+                <!-- Right Column - Outputs -->
+                <div class="space-y-3">
+                    <!-- Simplified Text -->
+                    <div class="bg-white rounded-lg p-4 shadow-sm border">
+                        <h3 class="text-base font-semibold mb-2">Simplified Text</h3>
+                        <div id="output-text" class="bg-gray-50 p-3 rounded border min-h-[150px] max-h-[240px] overflow-y-auto custom-scrollbar text-sm">
+                            Simplified text will appear here after analysis...
+                        </div>
                     </div>
-                    <div id="original" class="original" tabindex="0" aria-live="polite"></div>
-                  </div>
-                  <div class="col right">
-                    <h3>Output</h3>
-                    <div id="summary" class="summary"></div>
-                    <pre id="plain" class="plain" aria-live="polite"></pre>
-                    <h3>Risks</h3>
-                    <div class="risk-table" role="table" aria-label="Risks">
-                      <div class="risk-header" role="row">
-                        <div role="columnheader">Type</div>
-                        <div role="columnheader">Severity</div>
-                        <div role="columnheader">Excerpt</div>
-                        <div role="columnheader">Explanation</div>
-                        <div role="columnheader">Suggestion</div>
-                      </div>
-                      <div id="risks" role="rowgroup"></div>
+
+                    <!-- Summary -->
+                    <div class="bg-white rounded-lg p-4 shadow-sm border">
+                        <h3 class="text-base font-semibold mb-2">Summary</h3>
+                        <div class="bg-gray-50 p-3 rounded border">
+                            <pre id="summary-text" class="whitespace-pre-wrap text-xs">Document summary will appear here...</pre>
+                        </div>
                     </div>
-                  </div>
-                </section>
-              </main>
+
+                    <!-- Risk Analysis -->
+                    <div class="bg-white rounded-lg p-4 shadow-sm border">
+                        <h3 class="text-base font-semibold mb-2">Risk Analysis</h3>
+                        <div class="bg-gray-50 rounded border overflow-hidden">
+                            <div id="risk-analysis">
+                                <div class="p-3 text-gray-500 text-xs">Risk analysis will appear here after document analysis...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Original Text -->
+                    <div class="bg-white rounded-lg p-4 shadow-sm border">
+                        <h3 class="text-base font-semibold mb-2">Original Text</h3>
+                        <div class="bg-gray-50 p-3 rounded border min-h-[110px] max-h-[180px] overflow-y-auto custom-scrollbar">
+                            <pre id="original-text" class="whitespace-pre-wrap text-xs">Original document text will appear here...</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -438,16 +583,8 @@
                 </div>
 
                 <div class="relative">
-                    <div class="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-8 h-80">
-                        <div class="grid grid-cols-3 gap-4 h-full">
-                            <div class="bg-white rounded-lg"></div>
-                            <div class="bg-white rounded-lg"></div>
-                            <div class="bg-white rounded-lg"></div>
-                            <div class="bg-white rounded-lg col-span-2"></div>
-                            <div class="bg-white rounded-lg"></div>
-                            <div class="bg-white rounded-lg"></div>
-                            <div class="bg-white rounded-lg col-span-2"></div>
-                        </div>
+                    <div class="rounded-2xl overflow-hidden shadow-sm">
+                        <img src="public/executive-closing-deal.jpg" alt="Executive closing deal" class="w-full h-80 object-cover grayscale" loading="lazy" decoding="async">
                     </div>
                 </div>
             </div>
@@ -643,7 +780,7 @@
     <section class="py-14 px-6 bg-white">
         <div class="max-w-7xl mx-auto grid md:grid-cols-2 gap-10 items-center">
             <div class="rounded-3xl overflow-hidden shadow-sm bg-gray-100">
-                <img src="https://images.unsplash.com/photo-1520975916090-3105956dac38?q=80&w=1200&auto=format&fit=crop" alt="Testimonial visual placeholder" class="w-full h-[480px] md:h-[560px] object-cover" loading="lazy" decoding="async" fetchpriority="low">
+                <img src="public/pexels-janson-a-207878-753695.jpg" alt="Testimonial visual placeholder" class="w-full h-[480px] md:h-[560px] object-cover" loading="lazy" decoding="async" fetchpriority="low">
             </div>
 
             <div>

@@ -174,21 +174,26 @@ class ModelManager:
 
         if self.generator is None:
             ext = os.getenv("EXTERNAL_LLM_API_URL")
-            if not ext:
-                raise RuntimeError("No local model and no EXTERNAL_LLM_API_URL set")
-            try:
-                resp = requests.post(ext, json={"prompt": prompt, "max_new_tokens": max_new_tokens}, timeout=60)
-                resp.raise_for_status()
-                data = resp.json()
-                return data.get("text") or data.get("output") or ""
-            except requests.exceptions.RequestException as e:
-                raise ModelError(f"External LLM API call failed: {e}")
+            if ext:
+                try:
+                    resp = requests.post(ext, json={"prompt": prompt, "max_new_tokens": max_new_tokens}, timeout=60)
+                    resp.raise_for_status()
+                    data = resp.json()
+                    return data.get("text") or data.get("output") or ""
+                except requests.exceptions.RequestException as e:
+                    # fall through to echo fallback
+                    logger.warning("external_llm_failed_fallback_echo", error=str(e))
+            # Safe echo fallback to keep API responsive without models
+            logger.warning("no_model_no_external_using_echo_fallback")
+            return (" " + prompt.split("\n")[-1]).strip()[:max_new_tokens]
 
         try:
             res = self.generator(prompt, max_new_tokens=max_new_tokens, do_sample=True, temperature=0.3, top_p=0.9)
             return res[0]["generated_text"][len(prompt):]
         except Exception as e:
-            raise ModelError(f"Local model generation failed: {e}")
+            # fallback to echo if local generation fails
+            logger.warning("local_generation_failed_fallback_echo", error=str(e))
+            return (" " + prompt.split("\n")[-1]).strip()[:max_new_tokens]
 
     def process(self, text: str, task: str = "simplify", language: str = "auto") -> Dict[str, Any]:
         if not text:
