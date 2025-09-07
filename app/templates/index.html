@@ -1,6 +1,793 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="preconnect" href="https://images.unsplash.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bytesized&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Athenis - Legal Document Simplifier</title>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'sans': ['DM Sans', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+                        'serif': ['ui-serif', 'Georgia', 'Cambria', 'Times New Roman', 'Times', 'serif'],
+                        'mono': ['ui-monospace', 'SFMono-Regular', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', 'monospace']
+                    },
+                    colors: {
+                        'custom-green': '#8e9c78',
+                        'custom-dark-green': '#6B7A4F',
+                        'custom-darker-green': '#5A6B42',
+                        'custom-button-green': '#485c11',
+                        'custom-button-hover': '#3a4a0e'
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://cdn.tailwindcss.com/3.4.0"></script>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+        .blink-animation {
+            animation: blink 2s infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-white text-gray-900 scroll-smooth">
+    <div class="fixed top-6 left-6 z-50">
+        <div class="bg-gradient-to-b from-white/25 to-white/10 backdrop-blur-custom border border-white/20 ring-custom rounded-full px-4 py-2 shadow-custom transition-colors hover:from-white/30 hover:to-white/15">
+            <div class="flex items-center gap-3">
+                <img src="public/Athenis-mark.png" alt="Athenis" class="h-6 w-6" loading="lazy" width="24" height="24">
+                <div class="text-lg font-bold text-gray-800">Athenis</div>
+            </div>
+        </div>
+    </div>
+
+    <nav class="fixed top-6 left-1/2 transform -translate-x-1/2 z-50">
+        <div class="bg-gradient-to-b from-white/25 to-white/10 backdrop-blur-custom border border-white/20 ring-custom rounded-full px-3 py-1.5 shadow-custom transition-colors hover:from-white/30 hover:to-white/15">
+            <div class="flex items-center gap-1">
+                <button onclick="scrollToSection('benefits')" class="text-gray-800 hover:text-gray-900 transition-colors font-bold font-sans px-3 py-1 rounded-full hover:bg-white/20 text-xs">Benefits</button>
+                <button onclick="scrollToSection('architecture')" class="text-gray-800 hover:text-gray-900 transition-colors font-bold font-sans px-3 py-1 rounded-full hover:bg-white/20 text-xs">Architecture</button>
+                <button onclick="scrollToSection('specifications')" class="text-gray-800 hover:text-gray-900 transition-colors font-bold font-sans px-3 py-1 rounded-full hover:bg-white/20 text-xs">Specifications</button>
+                <button onclick="scrollToSection('akash')" class="text-gray-800 hover:text-gray-900 transition-colors font-bold font-sans px-3 py-1 rounded-full hover:bg-white/20 text-xs">Akash GPU</button>
+                <button onclick="scrollToSection('api')" class="text-gray-800 hover:text-gray-900 transition-colors font-bold font-sans px-3 py-1 rounded-full hover:bg-white/20 text-xs">API</button>
+                <button onclick="scrollToSection('how-to')" class="text-gray-800 hover:text-gray-900 transition-colors font-bold font-sans px-3 py-1 rounded-full hover:bg-white/20 text-xs">How-to</button>
+                <button onclick="scrollToSection('contact')" class="text-gray-800 hover:text-gray-900 transition-colors font-bold font-sans px-3 py-1 rounded-full hover:bg-white/20 text-xs">Contact Us</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="fixed top-6 right-6 z-50">
+        <div class="bg-[#485c11]/75 backdrop-blur-lg rounded-full shadow-lg transition-all duration-300 hover:bg-[#485c11]/90 hover:shadow-xl">
+            <button onclick="scrollToApp()" class="text-white hover:text-white/90 font-bold font-sans px-6 py-3 rounded-full transition-all duration-300 hover:bg-[#485c11]/20 text-sm">
+                Try Athenis
+            </button>
+        </div>
+    </div>
+
+    <section class="bg-white pt-24 pb-12 px-6 overflow-hidden">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-green-200 bg-green-50/30 text-sm text-gray-700 mb-4 shadow-sm">
+                    <span>HackOdisha 2025</span>
+                    <span class="text-gray-400">•</span>
+                    <span class="font-semibold text-green-700">Akash GPU Ready</span>
+                </div>
+                <h1 class="hero-title text-12xl md:text-7xl lg:text-8xl whitespace-nowrap font-serif text-gray-900 mb-3 pb-6 leading-none tracking-normal">
+                    <span class="font-semibold text-7xl md:text-8xl lg:text-9xl" style="font-family: 'Crimson Text', serif; font-weight:600;">
+                        Clarity in every clause
+                    </span>
+                </h1>
+                <p class="max-w-3xl mx-auto text-base md:text-lg text-gray-600 font-sans">
+                    Upload any document and get plain‑language summaries, obligations, and risks in seconds — with
+                    clause‑by‑clause breakdowns, realtime streaming, and multilingual support. Built to run on Akash GPUs
+                    and scale from hackathon to production.
+                </p>
+            </div>
+
+            <div class="relative w-[95%] mx-auto">
+                <div class="relative z-10 mb-[-20%]">
+                
+                    <div class="bg-black rounded-2xl p-1 mx-auto max-w-4xl">
+                        <div class="bg-gray-100 rounded-xl overflow-hidden">
+                            <div class="relative bg-cover bg-center bg-no-repeat p-8" style="background-image: url('public/legal-document.png');">
+                                <div class="absolute inset-0 bg-black/40 rounded-xl"></div>
+                                
+                                <div class="relative z-10">
+                                    <div class="flex items-center justify-between mb-6">
+                                        <div class="text-sm text-white/90 bg-black/30 backdrop-blur-sm rounded-lg px-3 py-1">Reports → Overview</div>
+                                        <div class="bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1 text-sm text-gray-800">GPU: A100 (Akash)</div>
+                                    </div>
+
+                                    <div class="mb-8">
+                                        <div class="text-6xl font-bold text-white mb-2 drop-shadow-lg">94%</div>
+                                        <div class="text-xl text-white/90 drop-shadow-md">Legal Clarity Improvements</div>
+                                    </div>
+
+                                    <div class="relative h-64 bg-gradient-to-br from-slate-700/80 via-gray-600/80 to-slate-800/80 rounded-xl overflow-hidden backdrop-blur-md border border-white/20 shadow-2xl">
+                                        <div class="absolute inset-0 bg-gradient-to-tr from-black/40 via-transparent to-white/10"></div>
+                                        
+                                        <div class="relative z-10 text-center pt-6 pb-3">
+                                            <h3 class="text-white text-lg font-bold drop-shadow-lg">From Jargon → Clarity</h3>
+                                        </div>
+                                        
+                                        <div class="relative z-10 px-4 pb-4 h-full">
+                                            <div class="grid grid-cols-2 gap-3 h-[calc(100%-6rem)]">
+                                                <div class="bg-orange-900/40 backdrop-blur-sm rounded-lg p-3 border border-orange-300/30 overflow-hidden">
+                                                    <div class="flex items-center gap-2 mb-2">
+                                                        <div class="w-2 h-2 bg-orange-400 rounded-full"></div>
+                                                        <span class="text-orange-200 text-xs font-semibold">BEFORE</span>
+                                                    </div>
+                                                    <div class="text-orange-100/90 text-xs leading-tight overflow-hidden">
+                                                        <p class="mb-1">"The Party of the First Part hereby agrees to indemnify, defend, and hold harmless the Party of the Second Part from and against any and all claims..."</p>
+                                                        <p class="mb-1">"Notwithstanding any provision herein to the contrary, said obligations shall survive termination..."</p>
+                                                        <p class="text-orange-300/60 text-[10px]">+ 47 more complex clauses</p>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="bg-blue-900/40 backdrop-blur-sm rounded-lg p-3 border border-blue-300/30 overflow-hidden">
+                                                    <div class="flex items-center gap-2 mb-2">
+                                                        <div class="w-2 h-2 bg-blue-400 rounded-full"></div>
+                                                        <span class="text-blue-200 text-xs font-semibold">AFTER</span>
+                                                    </div>
+                                                    <div class="text-blue-100/90 text-xs leading-tight overflow-hidden">
+                                                        <p class="mb-1">✓ <strong>You agree to:</strong> Cover any legal costs if someone sues us because of your actions.</p>
+                                                        <p class="mb-1">✓ <strong>Important:</strong> This responsibility continues even after the contract ends.</p>
+                                                        <p class="text-blue-300/80 text-[10px]">Clear explanations for all clauses</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-custom-green rounded-3xl pt-[9%] pb-20 px-8 relative z-0" style="background-color: #8e9c78 !important;">
+                    <div class="pt-12">
+                        </div>
+                </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-16 px-6 bg-gray-50">
+        <div class="max-w-6xl mx-auto grid lg:grid-cols-3 gap-8 items-start">
+            <div class="lg:col-span-2">
+                <h2 class="text-2xl font-serif text-gray-900 mb-4">Hackathon Vision</h2>
+                <p class="text-gray-700 mb-4 font-sans">
+                    We set out to build a Global Document Simplifier you can clone and deploy on <strong>Akash GPU</strong>:
+                    a Flask API for LLM inference, a lightweight Go ingestion service, and a clean HTML/CSS/JS frontend.
+                    It simplifies contracts, flags risky clauses, streams results via SSE, and exports structured reports.
+                </p>
+                <ul class="list-disc pl-6 space-y-2 text-gray-700">
+                    <li>Uploads: PDF/DOCX/TXT → text extraction, chunking, language detection</li>
+                    <li>Tasks: simplify, summarize, risk analysis with heuristic+LLM hybrid</li>
+                    <li>Multilingual: auto-detect + translate when needed</li>
+                    <li>Streaming: token-by-token updates to the browser via SSE</li>
+                    <li>Observability: Prometheus metrics and structured logs</li>
+                </ul>
+            </div>
+            <div class="bg-white rounded-xl p-6 border">
+                <h3 class="font-semibold mb-3">Why Akash?</h3>
+                <p class="text-gray-700 mb-3 font-sans">
+                    Akash makes GPU compute accessible and portable. Our containers request a single GPU and run the full
+                    stack behind a secure API — cost‑efficient, portable, and ready for production.
+                </p>
+                <div class="text-sm text-gray-600">
+                    <div>• GPU-ready Dockerfile (CUDA 11/12)</div>
+                    <div>• SDL configured to expose Flask on port 8080</div>
+                    <div>• Private networking between Flask and Go microservice</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="app-section" class="py-8 px-6 bg-gray-50">
+        <div class="max-w-7xl mx-auto">
+            <header class="site-header">
+                <div class="brand">
+                  <h1>Legal Jargon Simplifier</h1>
+                  <p class="tagline">Turn complex contracts into plain language with risk insights.</p>
+                </div>
+                <nav class="actions">
+                  <input type="password" id="apiKey" placeholder="API Key (dev)" aria-label="API Key" />
+                  <button id="printBtn" title="Print Report">Print</button>
+                  <button id="exportBtn" title="Export JSON">Export</button>
+                </nav>
+              </header>
+            
+              <main>
+                <section class="toolbar">
+                  <div class="field">
+                    <label for="task">Task</label>
+                    <select id="task">
+                      <option value="simplify">Simplify</option>
+                      <option value="summarize">Summarize</option>
+                      <option value="risk">Risk Analysis</option>
+                      <option value="full">Full Analysis</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="language">Language</label>
+                    <select id="language">
+                      <option value="auto">auto</option>
+                      <option value="en">en</option>
+                      <option value="hi">hi</option>
+                      <option value="es">es</option>
+                      <option value="de">de</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <button id="analyzeBtn">Analyze</button>
+                    <button id="streamBtn">Stream Simplify</button>
+                    <span id="spinner" class="spinner" aria-live="polite" aria-busy="false" hidden>Working…</span>
+                  </div>
+                </section>
+            
+                <section class="tabs" role="tablist" aria-label="Input mode">
+                  <button role="tab" aria-selected="true" id="tab-upload" aria-controls="panel-upload" class="tab active">Upload</button>
+                  <button role="tab" aria-selected="false" id="tab-paste" aria-controls="panel-paste" class="tab">Paste text</button>
+                </section>
+            
+                <section id="panel-upload" role="tabpanel" aria-labelledby="tab-upload" class="panel">
+                  <div class="upload">
+                    <input type="file" id="fileInput" accept=".pdf,.docx,.txt" />
+                    <label><input type="checkbox" id="largeDoc"> Large doc</label>
+                    <button id="uploadBtn">Upload</button>
+                    <small>Max 20MB. Supported: PDF, DOCX, TXT.</small>
+                  </div>
+                </section>
+            
+                <section id="panel-paste" role="tabpanel" aria-labelledby="tab-paste" class="panel hidden">
+                  <textarea id="textInput" rows="10" placeholder="Paste text here…" aria-label="Paste text"></textarea>
+                </section>
+            
+                <section class="results">
+                  <div class="col left">
+                    <div class="section-header">
+                      <h3>Original</h3>
+                      <input id="searchOriginal" type="search" placeholder="Search…" aria-label="Search original" />
+                    </div>
+                    <div id="original" class="original" tabindex="0" aria-live="polite"></div>
+                  </div>
+                  <div class="col right">
+                    <h3>Output</h3>
+                    <div id="summary" class="summary"></div>
+                    <pre id="plain" class="plain" aria-live="polite"></pre>
+                    <h3>Risks</h3>
+                    <div class="risk-table" role="table" aria-label="Risks">
+                      <div class="risk-header" role="row">
+                        <div role="columnheader">Type</div>
+                        <div role="columnheader">Severity</div>
+                        <div role="columnheader">Excerpt</div>
+                        <div role="columnheader">Explanation</div>
+                        <div role="columnheader">Suggestion</div>
+                      </div>
+                      <div id="risks" role="rowgroup"></div>
+                    </div>
+                  </div>
+                </section>
+              </main>
+        </div>
+    </section>
+
+    <section id="benefits" class="py-14 px-6 bg-white">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl font-serif text-gray-900 mb-4">We've cracked the code.</h2>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto font-sans">
+                    Legal documents don't have to be confusing. Our AI transforms complex jargon into clear, understandable
+                    language.
+                </p>
+            </div>
+
+            <div class="grid md:grid-cols-4 gap-8">
+                <div class="text-center">
+                    <div class="w-12 h-12 mx-auto mb-4 flex items-center justify-center">
+                        <img src="public/1.png" alt="Instant Simplification" class="w-10 h-10" loading="lazy" width="40" height="40">
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2 text-base">Instant Simplification</h3>
+                    <p class="text-gray-600 text-sm font-sans">Transform legal jargon into plain English in seconds, not hours.</p>
+                </div>
+
+                <div class="text-center">
+                    <div class="w-12 h-12 mx-auto mb-4 flex items-center justify-center">
+                        <img src="public/2.png" alt="Risk Detection" class="w-10 h-10" loading="lazy" width="40" height="40">
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2 text-base">Risk Detection</h3>
+                    <p class="text-gray-600 text-sm font-sans">
+                        Automatically identify hidden fees, unfair clauses, and potential risks.
+                    </p>
+                </div>
+
+                <div class="text-center">
+                    <div class="w-12 h-12 mx-auto mb-4 flex items-center justify-center">
+                        <img src="public/3.png" alt="Multi-Language" class="w-10 h-10" loading="lazy" width="40" height="40">
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2 text-base">Multi-Language</h3>
+                    <p class="text-gray-600 text-sm font-sans">Support for English, Hindi, Spanish, German and more languages.</p>
+                </div>
+
+                <div class="text-center">
+                    <div class="w-12 h-12 mx-auto mb-4 flex items-center justify-center">
+                        <img src="public/4.png" alt="Export Reports" class="w-10 h-10" loading="lazy" width="40" height="40">
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2 text-base">Export Reports</h3>
+                    <p class="text-gray-600 text-sm font-sans">
+                        Download detailed analysis reports in JSON or print-friendly formats.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-0">
+        <div class="h-40 relative overflow-hidden bg-gradient-to-r from-white via-slate-50 to-white">
+            <svg class="absolute inset-0 w-full h-full" viewBox="0 0 1200 320" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <linearGradient id="unravel" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#0a0a0a"/>
+                        <stop offset="35%" stop-color="#1f2937"/>
+                        <stop offset="70%" stop-color="#374151"/>
+                        <stop offset="100%" stop-color="#6b7280"/>
+                    </linearGradient>
+                    <filter id="softGlow2" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="4" result="g"/>
+                        <feMerge>
+                            <feMergeNode in="g"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                    <filter id="grain2" x="-10%" y="-10%" width="120%" height="120%">
+                        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" result="n"/>
+                        <feColorMatrix type="saturate" values="0"/>
+                        <feComponentTransfer>
+                            <feFuncA type="linear" slope="0.025"/>
+                        </feComponentTransfer>
+                    </filter>
+                    <mask id="funnelMask">
+                        <rect x="0" y="0" width="1200" height="320" fill="black"/>
+                        <path d="M260,40 L480,120 L860,160 L1180,160 L1180,200 L860,200 L480,200 L260,280 Z" fill="white"/>
+                    </mask>
+                    <mask id="rightMask">
+                        <rect x="0" y="0" width="1200" height="320" fill="black"/>
+                        <rect x="860" y="0" width="340" height="320" fill="white"/>
+                    </mask>
+                    <radialGradient id="blobL" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#111827" stop-opacity="0.22"/>
+                        <stop offset="100%" stop-color="#111827" stop-opacity="0"/>
+                    </radialGradient>
+                    <radialGradient id="blobM" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#6b7280" stop-opacity="0.18"/>
+                        <stop offset="100%" stop-color="#6b7280" stop-opacity="0"/>
+                    </radialGradient>
+                </defs>
+
+                <g transform="translate(130,165)" fill="none" stroke="#111827" opacity="0.85">
+                    <circle r="110" stroke-width="0.8" opacity="0.35"/>
+                    <circle r="92" stroke-width="1" opacity="0.4"/>
+                    <circle r="74" stroke-width="1.2" opacity="0.5"/>
+                    <circle r="56" stroke-width="1.4" opacity="0.6"/>
+                    <path d="M-100,-18 C-30,-90 50,-95 110,-25 S 80,60 -10,38 S -140,10 -100,-18" stroke-width="1" opacity="0.5"/>
+                    <path d="M-95,15 C-10,-60 65,-50 120,5 S 70,85 -25,55 S -150,0 -95,15" stroke-width="1" opacity="0.45"/>
+                    <path d="M-70,-40 C-40,-80 60,-70 100,-20 S 60,70 -30,30 S -120,-10 -70,-40" stroke-width="0.9" opacity="0.4"/>
+                    <path d="M-60,30 C-5,-30 80,-20 110,20 S 75,95 -35,68 S -130,15 -60,30" stroke-width="0.8" opacity="0.4"/>
+                </g>
+
+                <g fill="none" stroke="#111827" mask="url(#funnelMask)">
+                    <path d="M320,60 C500,120 700,90 860,120 C980,135 1080,130 1200,136" stroke-width="2" opacity="0.55"/>
+                    <path d="M300,100 C480,160 700,140 860,150 C980,156 1090,152 1200,160" stroke-width="1.8" opacity="0.5"/>
+                    <path d="M280,140 C460,200 700,190 880,195 C1000,198 1110,198 1200,202" stroke-width="1.6" opacity="0.46"/>
+                    <path d="M260,180 C440,240 700,240 900,242 C1030,244 1130,246 1200,248" stroke-width="1.4" opacity="0.42"/>
+                </g>
+
+                <g stroke="#111827" stroke-linecap="round" fill="none" opacity="0.7" mask="url(#rightMask)">
+                    <g opacity="0.45">
+                        <circle cx="930" cy="120" r="3"/>
+                        <circle cx="990" cy="155" r="3"/>
+                        <circle cx="1050" cy="190" r="3"/>
+                        <circle cx="1110" cy="225" r="3"/>
+                    </g>
+                </g>
+
+                </svg>
+        </div>
+    </section>
+
+    <section id="specifications" class="py-14 px-6 bg-gray-50">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid lg:grid-cols-2 gap-16 items-center">
+                <div>
+                    <h2 class="text-3xl font-serif text-gray-900 mb-6">See the Big Picture</h2>
+                    <div class="space-y-4 text-gray-600">
+                        <p>
+                            Documents shouldn’t be a barrier. Athenis turns complex contracts, policies, and agreements into
+                            clear, actionable insights you can trust.
+                        </p>
+                        <p>
+                            Every clause is analyzed for obligations, risks, and exceptions — explained in plain language and
+                            streamed in real time as the model thinks.
+                        </p>
+                        <p>
+                            From rental agreements to enterprise contracts, understand exactly what you’re agreeing to, in your
+                            language.
+                        </p>
+                        <p>
+                            Engineered for production from day one: GPU‑backed inference, robust streaming, caching, metrics,
+                            and CI/CD — deployable on Akash with minimal setup.
+                        </p>
+                    </div>
+                    <button class="mt-8 bg-custom-dark-green hover:bg-custom-darker-green text-white px-8 py-3 rounded-full font-medium transition-colors btn-primary">
+                        Discover More
+                    </button>
+                </div>
+
+                <div class="relative">
+                    <div class="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-8 h-80">
+                        <div class="grid grid-cols-3 gap-4 h-full">
+                            <div class="bg-white rounded-lg"></div>
+                            <div class="bg-white rounded-lg"></div>
+                            <div class="bg-white rounded-lg"></div>
+                            <div class="bg-white rounded-lg col-span-2"></div>
+                            <div class="bg-white rounded-lg"></div>
+                            <div class="bg-white rounded-lg"></div>
+                            <div class="bg-white rounded-lg col-span-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="architecture" class="py-14 px-6 bg-white">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-14">
+                <h2 class="text-3xl font-serif text-gray-900 mb-4">Architecture Overview</h2>
+                <p class="text-base text-gray-600 font-sans">Three services, one goal: clarity in every clause.</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="border rounded-xl p-6 bg-gray-50 card-hover">
+                    <h3 class="font-semibold text-gray-900 mb-2">Flask API (GPU)</h3>
+                    <p class="text-gray-700 mb-3 font-sans">
+                        Transformers + PyTorch with optional bitsandbytes quantization and CPU fallback.
+                    </p>
+                    <ul class="list-disc pl-5 text-sm text-gray-700 space-y-1">
+                        <li>POST /api/v1/inference</li>
+                        <li>POST /api/v1/stream (SSE)</li>
+                        <li>POST /api/v1/upload</li>
+                        <li>GET /api/v1/health · GET /metrics</li>
+                    </ul>
+                </div>
+                <div class="border rounded-xl p-6 bg-gray-50 card-hover">
+                    <h3 class="font-semibold text-gray-900 mb-2">Go Ingestion (GoFr)</h3>
+                    <p class="text-gray-700 mb-3 font-sans">PDF/DOCX → text, chunking, language detection.</p>
+                    <ul class="list-disc pl-5 text-sm text-gray-700 space-y-1">
+                        <li>POST /ingest returns chunk metadata</li>
+                        <li>Talks to Flask over internal network</li>
+                        <li>Clean, containerized, tiny footprint</li>
+                    </ul>
+                </div>
+                <div class="border rounded-xl p-6 bg-gray-50 card-hover">
+                    <h3 class="font-semibold text-gray-900 mb-2">Frontend (HTML/CSS/JS)</h3>
+                    <p class="text-gray-700 mb-3 font-sans">No frameworks required; clean, modern UI.</p>
+                    <ul class="list-disc pl-5 text-sm text-gray-700 space-y-1">
+                        <li>File upload + paste text</li>
+                        <li>Side-by-side original vs simplified</li>
+                        <li>Risk highlighting + drilldown</li>
+                        <li>Export JSON + printable report</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="mt-10 grid md:grid-cols-3 gap-6 text-sm">
+                <div class="border rounded-xl p-5 card-hover">
+                    <div class="font-semibold mb-1">Security</div>
+                    <div class="text-gray-700">API key middleware, hardened headers, token bucket rate limiting.</div>
+                </div>
+                <div class="border rounded-xl p-5 card-hover">
+                    <div class="font-semibold mb-1">Observability</div>
+                    <div class="text-gray-700">Prometheus /metrics, structured logs, example Grafana dashboard.</div>
+                </div>
+                <div class="border rounded-xl p-5 card-hover">
+                    <div class="font-semibold mb-1">CI/CD</div>
+                    <div class="text-gray-700">GitHub Actions: lint, test, build, optional push and deploy.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="akash" class="py-14 px-6 bg-gray-50">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-serif text-gray-900 mb-4">Akash GPU Deployment</h2>
+                <p class="text-base text-gray-600 font-sans">Portable, cost-efficient GPU inference on a decentralized cloud.</p>
+            </div>
+            <div class="grid lg:grid-cols-2 gap-10">
+                <div class="border rounded-xl p-6 bg-white card-hover">
+                    <h3 class="font-semibold mb-3">Simple Setup Requirements</h3>
+                    <ul class="list-disc pl-6 space-y-2 text-gray-700">
+                        <li>Choose your <span class="font-medium">GPU power level</span> - from basic to premium options</li>
+                        <li>Set up your <span class="font-medium">service connection</span> and monitoring dashboard</li>
+                        <li>Configure your <span class="font-medium">API keys</span> and <span class="font-medium">model preferences</span></li>
+                        <li>Enable <span class="font-medium">smart memory optimization</span> for better performance</li>
+                        <li>Secure <span class="font-medium">private networking</span> between your services</li>
+                        <li>Automatic <span class="font-medium">backup system</span> when main service is unavailable</li>
+                    </ul>
+                    <div class="mt-4 text-xs text-gray-500">
+                        Tip: Use <span class="font-medium">version tags</span> to ensure your deployments work consistently every time.
+                    </div>
+                </div>
+
+                <div class="border rounded-xl p-6 bg-white card-hover">
+                    <h3 class="font-semibold mb-3">Quick Launch Guide</h3>
+                    <ol class="list-decimal pl-6 space-y-2 text-gray-700 text-sm">
+                        <li>Upload your <span class="font-medium">application packages</span> to the cloud registry</li>
+                        <li>Configure your <span class="font-medium">resource requirements</span> and service settings</li>
+                        <li>Set up your <span class="font-medium">security credentials</span> and preferences</li>
+                        <li>Launch your deployment through the <span class="font-medium">simple dashboard</span></li>
+                        <li>Verify everything is <span class="font-medium">running smoothly</span> and start using your service</li>
+                    </ol>
+                    <div class="mt-4 text-sm text-gray-700">
+                        <div>• Uses modern deployment technology</div>
+                        <div>• Automatic builds when you update your code</div>
+                        <div>• Built-in performance monitoring included</div>
+                    </div>
+                    <button onclick="scrollToApp()" class="mt-6 bg-custom-dark-green hover:bg-custom-darker-green text-white px-6 py-2 rounded-full btn-primary">
+                        Try the Demo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="api" class="py-14 px-6 bg-white">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl font-serif text-gray-900 mb-2">API Endpoints</h2>
+                <p class="text-base text-gray-600 font-sans">Plain‑language insights over HTTP — fast, streaming, and easy to integrate.</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="border rounded-xl p-6 bg-gray-50 card-hover">
+                    <div class="font-semibold mb-2">POST /api/v1/inference</div>
+                    <div class="text-gray-700 text-sm">
+                        Input text, choose task (simplify | risk | summarize), select language. Returns overview, plain_language,
+                        clause_explanations, risks_detected, meta.
+                    </div>
+                </div>
+                <div class="border rounded-xl p-6 bg-gray-50 card-hover">
+                    <div class="font-semibold mb-2">POST /api/v1/stream</div>
+                    <div class="text-gray-700 text-sm">SSE endpoint for token streaming and progress events.</div>
+                </div>
+                <div class="border rounded-xl p-6 bg-gray-50 card-hover">
+                    <div class="font-semibold mb-2">POST /api/v1/upload</div>
+                    <div class="text-gray-700 text-sm">Multipart upload (PDF/DOCX/TXT) → id + extracted text metadata.</div>
+                </div>
+                <div class="border rounded-xl p-6 bg-gray-50 card-hover">
+                    <div class="font-semibold mb-2">GET /api/v1/health · GET /metrics</div>
+                    <div class="text-gray-700 text-sm">GPU memory, model readiness, and Prometheus metrics.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-14 px-6 bg-white">
+        <div class="max-w-6xl mx-auto text-center">
+            <h2 class="text-3xl font-serif text-gray-900 mb-4">Why Choose Athenis?</h2>
+            <p class="text-lg text-gray-600 mb-12 font-sans">
+                See how Athenis replaces hours of reading with instant clarity.
+            </p>
+
+            <div class="grid md:grid-cols-3 gap-8 text-left">
+                <div class="card-hover p-6 rounded-lg border">
+                    <h3 class="font-semibold text-gray-900 mb-4">Traditional</h3>
+                    <ul class="space-y-3 text-gray-600">
+                        <li>• Hours of reading</li>
+                        <li>• Dense legal jargon</li>
+                        <li>• Missed obligations and risks</li>
+                        <li>• Expensive expert reviews</li>
+                        <li>• Language barriers</li>
+                        <li>• No clear highlighting</li>
+                        <li>• Slow, manual analysis</li>
+                    </ul>
+                </div>
+
+                <div class="card-hover p-6 rounded-lg border bg-gradient-to-br from-custom-green/10 to-custom-dark-green/10">
+                    <h3 class="font-semibold text-gray-900 mb-4">With Athenis</h3>
+                    <ul class="space-y-3 text-gray-600">
+                        <li>• Instant, streaming analysis</li>
+                        <li>• Plain‑language summaries</li>
+                        <li>• Automatic risk and obligation detection</li>
+                        <li>• Affordable, GPU‑powered inference</li>
+                        <li>• Multilingual support</li>
+                        <li>• Clear, clause‑by‑clause highlights</li>
+                        <li>• Exportable, structured reports</li>
+                    </ul>
+                </div>
+
+                <div class="card-hover p-6 rounded-lg border">
+                    <h3 class="font-semibold text-gray-900 mb-4">Expert Plus</h3>
+                    <ul class="space-y-3 text-gray-600">
+                        <li>• AI + human review</li>
+                        <li>• Legal expert validation</li>
+                        <li>• Custom risk profiles</li>
+                        <li>• Priority support</li>
+                        <li>• Advanced analytics and metrics</li>
+                        <li>• Compliance and audit trails</li>
+                        <li>• White‑label options</li>
+                    </ul>
+                </div>
+            </div>
+
+            <button class="mt-12 bg-custom-dark-green hover:bg-custom-darker-green text-white px-8 py-3 rounded-full font-medium transition-colors btn-primary">
+                Get Started
+            </button>
+        </div>
+    </section>
+
+    <section class="py-14 px-6 bg-white">
+        <div class="max-w-7xl mx-auto grid md:grid-cols-2 gap-10 items-center">
+            <div class="rounded-3xl overflow-hidden shadow-sm bg-gray-100">
+                <img src="https://images.unsplash.com/photo-1520975916090-3105956dac38?q=80&w=1200&auto=format&fit=crop" alt="Testimonial visual placeholder" class="w-full h-[480px] md:h-[560px] object-cover" loading="lazy" decoding="async" fetchpriority="low">
+            </div>
+
+            <div>
+                <blockquote class="font-serif text-2xl md:text-2xl leading-tight text-gray-900">
+                    <span class="select-none">"</span>I used to spend hours trying to understand contracts. With this tool, everything is explained in plain language and the risks are highlighted instantly. It feels like having a lawyer on my side every time.<span class="select-none">"</span>
+                </blockquote>
+                <div class="mt-10">
+                    <div class="text-gray-900 font-medium">Anita Leclarc</div>
+                    <div class="text-custom-dark-green text-sm tracking-widest">Founder, Aera Solutions</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="how-to" class="py-14 px-6 bg-white">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-serif text-gray-900 mb-4">Map Your Success</h2>
+                <button class="bg-custom-dark-green hover:bg-custom-darker-green text-white px-6 py-2 rounded-full font-medium transition-colors btn-primary">
+                    Get Started
+                </button>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-12">
+                <div class="text-center card-hover rounded-xl p-6 border border-transparent hover:bg-gray-50 hover:border-gray-200 hover:rounded-3xl transition-all">
+                    <div class="text-5xl font-bold text-custom-green mb-4">01</div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">Upload</h3>
+                    <p class="text-gray-600 text-sm md:text-base font-sans">
+                        Upload your legal document or paste the text directly into our secure platform.
+                    </p>
+                </div>
+
+                <div class="text-center card-hover rounded-xl p-6 border border-transparent hover:bg-gray-50 hover:border-gray-200 hover:rounded-3xl transition-all">
+                    <div class="text-5xl font-bold text-custom-green mb-4">02</div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">Analyze and Clarify</h3>
+                    <p class="text-gray-600 text-sm md:text-base font-sans">
+                        Our AI processes the document, simplifies complex language, and identifies potential risks.
+                    </p>
+                </div>
+
+                <div class="text-center card-hover rounded-xl p-6 border border-transparent hover:bg-gray-50 hover:border-gray-200 hover:rounded-3xl transition-all">
+                    <div class="text-5xl font-bold text-custom-green mb-4">03</div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">Get Clear Results</h3>
+                    <p class="text-gray-600 text-sm md:text-base font-sans">
+                        Receive plain-language summaries, risk assessments, and actionable insights instantly.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-0">
+        <div class="h-64 bg-gradient-to-r from-teal-400 via-green-500 to-emerald-600 relative overflow-hidden">
+            <div class="absolute inset-0">
+                <svg viewBox="0 0 1200 300" class="w-full h-full">
+                    <path d="M0,100 C300,150 600,50 900,100 C1050,125 1150,75 1200,100 L1200,300 L0,300 Z" fill="rgba(255,255,255,0.1)"></path>
+                    <path d="M0,150 C300,200 600,100 900,150 C1050,175 1150,125 1200,150 L1200,300 L0,300 Z" fill="rgba(255,255,255,0.05)"></path>
+                </svg>
+            </div>
+        </div>
+    </section>
+
+    <section id="contact" class="py-14 px-6 bg-white">
+        <div class="max-w-4xl mx-auto text-center">
+            <h2 class="text-3xl font-serif text-gray-900 mb-8">Connect with us</h2>
+            <p class="text-lg text-gray-600 mb-12 font-sans">
+                Ready to transform how you handle legal documents? Get started with Athenis today.
+            </p>
+
+            <button class="bg-custom-dark-green hover:bg-custom-darker-green text-white px-12 py-4 rounded-full text-base font-medium transition-colors btn-primary">
+                Simplify My Document Now
+            </button>
+        </div>
+    </section>
+
+    <footer class="border-t border-gray-200 px-6 py-10 bg-white">
+        <div class="max-w-7xl mx-auto">
+            <nav class="flex items-center gap-10 text-lg font-semibold text-gray-900 mb-10">
+                <button onclick="scrollToSection('benefits')" class="hover:text-custom-dark-green transition-colors">Benefits</button>
+                <button onclick="scrollToSection('specifications')" class="hover:text-custom-dark-green transition-colors">Specifications</button>
+                <button onclick="scrollToSection('how-to')" class="hover:text-custom-dark-green transition-colors">How-to</button>
+            </nav>
+
+            <div class="flex items-end justify-between">
+                <div class="flex items-center gap-4">
+                    <svg width="28" height="48" viewBox="0 0 28 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <rect x="11" y="2" width="6" height="6" fill="#000000"></rect>
+                        <rect x="10" y="10" width="8" height="14" fill="#000000"></rect>
+                        <rect x="4" y="12" width="4" height="10" transform="rotate(-30 4 12)" fill="#000000"></rect>
+                        <rect x="20" y="12" width="4" height="10" transform="rotate(30 20 12)" fill="#000000"></rect>
+                        <rect x="8" y="26" width="5" height="18" fill="#000000"></rect>
+                        <rect x="15" y="26" width="5" height="18" fill="#000000"></rect>
+                    </svg>
+                    <span class="text-custom-dark-green tracking-widest">© Team Arete. 2025</span>
+                </div>
+
+                <div class="text-custom-dark-green tracking-widest">All Rights Reserved</div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="main.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Civica</title>
@@ -112,4 +899,4 @@
 
   <script src="/static/js/main.js"></script>
 </body>
-</html>
+</html> -->
