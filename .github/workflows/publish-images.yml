@@ -1,0 +1,53 @@
+name: Publish Images to GHCR
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_WEB: ghcr.io/${{ github.repository }}:latest
+  IMAGE_GOFR: ghcr.io/${{ github.repository }}-gofr:latest
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_WEB }}
+
+      - name: Build & Push GoFr Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./gofr/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_GOFR }}
+
+      - name: Output image names
+        run: |
+          echo "WEB:    $IMAGE_WEB"
+          echo "GOFR:   $IMAGE_GOFR"
+          echo "Copy these into akash.yaml:"
+          echo "  services.web.image:  $IMAGE_WEB"
+          echo "  services.gofr.image: $IMAGE_GOFR"
