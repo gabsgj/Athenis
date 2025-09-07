@@ -3,18 +3,24 @@ version: "2.0"
 
 services:
   athenis:
-    image: ghcr.io/gabsgj/hackodisha/athenis:latest
+  image: ghcr.io/gabsgj/hackodisha/athenis:latest
     expose:
       - port: 8080
         as: 80
         to:
           - global: true
     env:
-      - API_KEY=ak_prod_2025_secure_cpu_deployment_key_5h2k8w9r
-      - EXTERNAL_LLM_API_URL=https://api.openai.com/v1/chat/completions
-      - OPENAI_API_KEY=your-openai-key-here
-      - MODEL_NAME=gpt-3.5-turbo
-      - RATE_LIMIT_PER_MIN=20
+  - API_KEY=ak_prod_2025_secure_cpu_deployment_key_5h2k8w9r
+  # Use Akash AI (or any HTTP LLM) instead of OpenAI
+  # Example: OpenAI-compatible endpoint (set format=openai), or simple {prompt}->{text}
+  - EXTERNAL_LLM_API_URL=https://ai.your-akash-endpoint.example.com/v1/chat/completions
+  - EXTERNAL_LLM_API_KEY=your-akash-ai-key
+  - EXTERNAL_LLM_API_KEY_HEADER=Authorization
+  - EXTERNAL_LLM_API_KEY_SCHEME=Bearer
+  - EXTERNAL_LLM_FORMAT=openai
+  # Local fallback model (CPU-friendly) if EXTERNAL_LLM_API_URL is unset
+  - MODEL_NAME=microsoft/DialoGPT-medium
+  - RATE_LIMIT_PER_MIN=20
       - LOG_LEVEL=info
       - CORS_ORIGINS=*
 

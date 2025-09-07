@@ -33,17 +33,28 @@ class ModelError(Exception):
 
 class ModelManager:
     def __init__(self):
+        # Core config
         self.model_name = os.getenv("MODEL_NAME", "TinyLlama/TinyLlama-1.1B-Chat-v1.0")
         self.quantize = os.getenv("QUANTIZE")
-        self.external_llm_url = os.getenv("EXTERNAL_LLM_API_URL")
         self.fast_test = os.getenv("FAST_TEST") == "1"
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.last_device = self.device
+
+        # External LLM (Akash AI or any HTTP endpoint)
+        self.external_llm_url = os.getenv("EXTERNAL_LLM_API_URL")
+        self.external_llm_key = os.getenv("EXTERNAL_LLM_API_KEY")
+        self.external_llm_hdr = os.getenv("EXTERNAL_LLM_API_KEY_HEADER", "Authorization")
+        self.external_llm_scheme = os.getenv("EXTERNAL_LLM_API_KEY_SCHEME", "Bearer")
+        # Accepts: "simple" (json {prompt}) or "openai" (OpenAI-compatible Chat Completions)
+        self.external_llm_format = os.getenv("EXTERNAL_LLM_FORMAT", "simple").lower()
+
+        # Lazy model holders
         self.model = None
         self.tokenizer = None
         self.generator = None
         self.prompt_manager = PromptManager()
 
+        # Load local model only when not using external URL and not in fast-test mode
         if not self.fast_test and not self.external_llm_url:
             self._load_local_model()
 
@@ -80,10 +91,51 @@ class ModelManager:
             raise ModelError(f"Failed to load local model: {e}")
 
     def _external_call(self, prompt):
+        if not self.external_llm_url:
+            raise ModelError("External LLM URL not configured")
+
+        headers = {}
+        if self.external_llm_key:
+            if self.external_llm_hdr:
+                if self.external_llm_scheme:
+                    headers[self.external_llm_hdr] = f"{self.external_llm_scheme} {self.external_llm_key}"
+                else:
+                    headers[self.external_llm_hdr] = self.external_llm_key
+
+        payload = None
+        if self.external_llm_format == "openai":
+            model = self.model_name or os.getenv("MODEL_NAME", "gpt-3.5-turbo")
+            payload = {
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.2,
+                "stream": False
+            }
+        else:
+            # default "simple" schema
+            payload = {"prompt": prompt}
+
         try:
-            response = requests.post(self.external_llm_url, json={"prompt": prompt})
+            response = requests.post(self.external_llm_url, headers=headers, json=payload, timeout=60)
             response.raise_for_status()
-            return response.json().get("text", "")
+            data = response.json()
+            # Try common shapes
+            if self.external_llm_format == "openai":
+                # OpenAI-compatible: choices[0].message.content or choices[0].text
+                try:
+                    if isinstance(data.get("choices"), list) and data["choices"]:
+                        choice = data["choices"][0]
+                        if isinstance(choice, dict):
+                            msg = choice.get("message", {})
+                            content = msg.get("content") if isinstance(msg, dict) else None
+                            if content:
+                                return content
+                            if choice.get("text"):
+                                return choice["text"]
+                except Exception:
+                    pass
+            # Simple: { text: "..." } or { output: "..." }
+            return data.get("text") or data.get("output") or str(data)
         except requests.RequestException as e:
             raise ModelError(f"External LLM API call failed: {e}")
 
