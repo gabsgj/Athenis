@@ -38,6 +38,11 @@ from app.utils.logging import logger
 
 import time
 
+class ModelError(Exception):
+    """Custom exception for model-related errors."""
+    pass
+
+
 class ModelManager:
     def __init__(self, cache=None):
         self.cache = cache
