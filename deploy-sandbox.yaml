@@ -10,7 +10,7 @@ services:
         to:
           - global: true
     env:
-      - API_KEY=test-key-123
+      - API_KEY=ak_test_2025_sandbox_demo_key_3f6j9m2p
       - FAST_TEST=1
       - CORS_ORIGINS=*
     command:

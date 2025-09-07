@@ -10,7 +10,7 @@ services:
         to:
           - global: true
     env:
-      - API_KEY=your-production-key-change-me
+      - API_KEY=ak_prod_2025_secure_cpu_deployment_key_5h2k8w9r
       - EXTERNAL_LLM_API_URL=https://api.openai.com/v1/chat/completions
       - OPENAI_API_KEY=your-openai-key-here
       - MODEL_NAME=gpt-3.5-turbo

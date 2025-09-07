@@ -10,7 +10,7 @@ services:
         to:
           - global: true
     env:
-      - API_KEY=your-production-key-change-me
+      - API_KEY=ak_prod_2025_secure_gpu_deployment_key_7x9m4n8q
       - MODEL_NAME=microsoft/DialoGPT-medium
       - QUANTIZE=8bit
       - RATE_LIMIT_PER_MIN=10
