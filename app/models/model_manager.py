@@ -1,207 +1,197 @@
+# app/models/model_manager.py
 import os
+import re
 import json
-import math
-from typing import Dict, Any, Generator, List
+from typing import Generator, Optional, Union, Dict
 
-try:
-    import torch
-except Exception:  # allow running without torch in FAST_TEST
-    class _Cuda:
-        @staticmethod
-        def is_available():
-            return False
+_LLAMA_WARNING = (
+    "No LLM configured. Using deterministic fallback. "
+    "Set OPENAI_API_KEY to enable real model responses."
+)
 
-        @staticmethod
-        def memory_allocated():
-            return 0
+def _looks_hindi(text: str) -> bool:
+    # Basic: Devanagari unicode block
+    return bool(re.search(r"[\u0900-\u097F]", text))
 
-        @staticmethod
-        def get_device_name(_):
-            return "cpu"
-
-    class _TorchStub:
-        cuda = _Cuda()
-        float16 = None
-        float32 = None
-
-    torch = _TorchStub()
-try:
-    from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
-except Exception:  # allow running without transformers in FAST_TEST
-    AutoTokenizer = None
-    AutoModelForCausalLM = None
-    pipeline = None
-
-from app.models.prompt_manager import PromptManager
-from app.models.embeddings import Embedder
-from app.models.risk_detector import heuristic_risks
-from app.utils.logging import logger
-
+class ModelError(RuntimeError):
+    pass
 
 class ModelManager:
-    def __init__(self, cache=None):
-        self.cache = cache
-        self.model_name = os.getenv("MODEL_NAME", "TinyLlama/TinyLlama-1.1B-Chat-v1.0")
-        self.quantize = os.getenv("QUANTIZE", "8bit")
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.prompt = PromptManager()
-        self.embedder = Embedder()
-        self.tokenizer = None
-        self.model = None
-        self.generator = None
+    """
+    Thin abstraction over an LLM with graceful dev-mode fallback.
 
-    def _load_model(self):
-        try:
-            if AutoTokenizer is None or AutoModelForCausalLM is None or pipeline is None:
-                raise RuntimeError("transformers not available")
-            bnb_args = {}
-            if self.device == "cuda" and self.quantize in ("8bit", "4bit"):
-                try:
-                    import bitsandbytes  # noqa: F401
-                except Exception:
-                    logger.warning("bitsandbytes not available; proceeding without quantization")
-                    self.quantize = "none"
-                if self.quantize == "8bit":
-                    bnb_args = {"load_in_8bit": True, "device_map": "auto"}
-                else:
-                    bnb_args = {"load_in_4bit": True, "device_map": "auto"}
-            else:
-                bnb_args = {"device_map": "auto"} if self.device == "cuda" else {}
+    Modes supported:
+      - 'simplify'   : plain-language rewrite (reader-friendly)
+      - 'summarize'  : concise bullet points + one-line gist
+      - 'translate'  : English ↔ Hindi (min). `target_lang` decides direction.
+    """
 
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_name,
-                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-                **bnb_args,
-            )
-            self.generator = pipeline(
-                "text-generation",
-                model=self.model,
-                tokenizer=self.tokenizer,
-                device=0 if self.device == "cuda" else -1,
-                pad_token_id=self.tokenizer.eos_token_id,
-            )
-            logger.info("model_loaded", model=self.model_name, device=self.device, quantize=self.quantize)
-        except Exception as e:
-            logger.exception("model_load_failed", error=str(e))
-            self.model = None
-            self.tokenizer = None
-            self.generator = None
-
-    def gpu_info(self):
-        if torch.cuda.is_available():
-            mem = torch.cuda.memory_allocated()
-            return {"device": torch.cuda.get_device_name(0), "memory": int(mem)}
-        return {"device": "cpu", "memory": 0}
-
-    def _chunk_text(self, text: str, chunk_size: int = 1200, overlap: int = 200) -> List[str]:
-        chunks = []
-        i = 0
-        n = len(text)
-        while i < n:
-            j = min(n, i + chunk_size)
-            chunks.append(text[i:j])
-            i = j - overlap
-            if i < 0:
-                i = 0
-        return chunks
-
-    def _summarize_chunks(self, chunks: List[str]) -> str:
-        summaries = []
-        for ch in chunks:
-            prompt = self.prompt.build("summarize", ch)
-            out = self._generate_text(prompt, max_new_tokens=180)
-            summaries.append(out.strip())
-        merged = "\n".join(summaries)
-        return merged[:4000]
-
-    def _generate_text(self, prompt: str, max_new_tokens: int = 256) -> str:
-        if os.getenv("FAST_TEST") == "1":
-            # Lightweight stub for tests/CI
-            return (" " + prompt.split("\n")[-1]).strip()[:max_new_tokens]
-        if self.generator is None:
-            # Lazy load model on first use
-            self._load_model()
-        if self.generator is None:
-            # External fallback
-            ext = os.getenv("EXTERNAL_LLM_API_URL")
-            if not ext:
-                raise RuntimeError("No local model and no EXTERNAL_LLM_API_URL set")
-            import requests
-            resp = requests.post(ext, json={"prompt": prompt, "max_new_tokens": max_new_tokens}, timeout=60)
-            resp.raise_for_status()
-            data = resp.json()
-            return data.get("text") or data.get("output") or ""
-        res = self.generator(prompt, max_new_tokens=max_new_tokens, do_sample=True, temperature=0.3, top_p=0.9)
-        return res[0]["generated_text"][len(prompt):]
-
-    def process(self, text: str, task: str = "simplify", language: str = "auto") -> Dict[str, Any]:
-        if not text:
-            return {"error": "empty_text", "message": "No text provided"}
-        cache_key = f"proc:{hash(text)}:{task}:{language}"
-        cached = self.cache.get(cache_key) if self.cache else None
-        if cached:
-            return cached
-
-        # Chunk + embed + summarize
-        chunks = self._chunk_text(text)
-        merged_summary = self._summarize_chunks(chunks) if len(text) > 1500 else text
-
-        # Context retrieval
-        idxs = self.embedder.search(merged_summary, chunks, top_k=5)
-        context = "\n".join([chunks[i] for i, _ in idxs]) if idxs else text
-
-        # Build prompt
-        prompt = self.prompt.build("simplify" if task == "simplify" else ("risk" if task == "risk" else "summarize"), context)
-        generated = self._generate_text(prompt, max_new_tokens=512)
-
-        # Heuristic risks
-        risks = heuristic_risks(text)
-        # Optionally refine with LLM
-        refine_prompt = (
-            "Normalize the following risks into JSON list with fields id,type,clause_excerpt,severity,explanation,suggested_action.\n"
-            f"Risks: {json.dumps(risks)}\nJSON:"
-        )
-        try:
-            refined = self._generate_text(refine_prompt, max_new_tokens=256)
-            refined_json = self._safe_json_list(refined) or risks
-        except Exception:
-            refined_json = risks
-
-        # naive clause explanations: first 5 paragraphs summarized
-        paras = [p.strip() for p in text.split("\n") if p.strip()][:5]
-        clause_expl = []
-        for p in paras:
+    def __init__(self):
+        self.use_fake = os.getenv("USE_FAKE_MODEL", "").strip() == "1"
+        self._client = None
+        self._llm_ok = False
+        if not self.use_fake:
             try:
-                pe = self._generate_text(self.prompt.build("summarize", p), max_new_tokens=80).strip()
+                from openai import OpenAI  # type: ignore
+                key = os.getenv("OPENAI_API_KEY")
+                if key:
+                    self._client = OpenAI(api_key=key)
+                    self._llm_ok = True
+                else:
+                    # no key -> fallback
+                    self.use_fake = True
             except Exception:
-                pe = ""
-            clause_expl.append({"clause": p[:200], "explanation": pe})
+                # openai library not installed or other setup issue
+                self.use_fake = True
 
-        result = {
-            "overview": merged_summary if merged_summary != text else generated[:500],
-            "plain_language": generated.strip(),
-            "clause_explanations": clause_expl,
-            "risks_detected": refined_json,
-            "meta": {"model": self.model_name, "device": self.device, "chunks": len(chunks)},
-        }
-        if self.cache:
-            self.cache.set(cache_key, result)
-        return result
+        # Default model name if using OpenAI
+        self.model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
-    def _safe_json_list(self, text: str):
-        import re, json
-        m = re.search(r"\[.*\]", text, re.S)
-        if not m:
-            return None
+    # -------------------------------
+    # Public: analyze_document
+    # -------------------------------
+    def analyze_document(
+        self,
+        text: str,
+        mode: str,
+        stream: bool = False,
+        target_lang: Optional[str] = None,
+    ) -> Union[str, Generator[str, None, None]]:
+        """
+        Analyze a document based on mode.
+
+        Args:
+            text: input text
+            mode: "simplify" | "summarize" | "translate"
+            stream: if True, returns generator[str] chunks
+            target_lang: for translate mode ('en' or 'hi'). If None, we infer.
+
+        Returns:
+            str (sync) OR generator[str] (streaming chunks)
+        """
+        mode = mode.strip().lower()
+        if mode not in {"simplify", "summarize", "translate"}:
+            raise ModelError(f"Unsupported mode: {mode}")
+
+        if self.use_fake or not self._llm_ok:
+            # Deterministic fallback (dev/test)
+            if stream:
+                return self._fake_stream(text, mode, target_lang)
+            return self._fake_sync(text, mode, target_lang)
+
+        # Real LLM path
+        if stream:
+            return self._llm_stream(text, mode, target_lang)
+        return self._llm_sync(text, mode, target_lang)
+
+    # -------------------------------
+    # Fallback (fake) implementation
+    # -------------------------------
+    def _fake_sync(self, text: str, mode: str, target_lang: Optional[str]) -> str:
+        if mode == "simplify":
+            # simple sentence shortening (toy)
+            sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+            out = []
+            for s in sentences:
+                s2 = re.sub(r"\b(utilize|leverage|commence|terminate)\b", 
+                            lambda m: {"utilize":"use","leverage":"use","commence":"start","terminate":"end"}[m.group(0)], 
+                            s, flags=re.I)
+                s2 = re.sub(r"\s+", " ", s2).strip()
+                if len(s2) > 180:
+                    s2 = s2[:177] + "..."
+                out.append(s2)
+            return " ".join(out)
+
+        if mode == "summarize":
+            words = text.strip().split()
+            first = " ".join(words[:40]) + ("..." if len(words) > 40 else "")
+            bullets = []
+            # naive extraction: take first 3 clauses/sentences
+            for s in re.split(r'(?<=[.!?])\s+', text.strip())[:3]:
+                if s:
+                    bullets.append(f"- {s.strip()}")
+            gist = (words[:12])
+            gist = " ".join(gist) + ("..." if len(words) > 12 else "")
+            return f"Summary:\n" + "\n".join(bullets) + f"\n\nGist: {gist}"
+
+        if mode == "translate":
+            # Very naive “translation”: tag + passthrough so tests can assert.
+            # Direction: infer if not given
+            if not target_lang:
+                target_lang = "hi" if not _looks_hindi(text) else "en"
+            direction = f"en→hi" if target_lang == "hi" else "hi→en"
+            return f"[{direction}][FAKE] " + text
+        raise ModelError("Unknown mode")
+
+    def _fake_stream(self, text: str, mode: str, target_lang: Optional[str]) -> Generator[str, None, None]:
+        # Reuse sync then drip in chunks
+        whole = self._fake_sync(text, mode, target_lang)
+        chunk_size = 64
+        for i in range(0, len(whole), chunk_size):
+            yield whole[i : i + chunk_size]
+
+    # -------------------------------
+    # Real LLM implementation (OpenAI)
+    # -------------------------------
+    def _system_prompt(self, mode: str, target_lang: Optional[str]) -> str:
+        if mode == "simplify":
+            return (
+                "You rewrite text into clear, plain, friendly language at ~8th-grade "
+                "reading level. Keep meaning, remove jargon, keep key details."
+            )
+        if mode == "summarize":
+            return (
+                "You create concise, factual summaries. Output bullet points (3-6) and "
+                "finish with one-line 'Gist:'"
+            )
+        if mode == "translate":
+            if not target_lang:
+                target_lang = "hi"
+            lang_line = "Hindi" if target_lang == "hi" else "English"
+            return f"You are a precise translator. Translate faithfully into {lang_line}. Keep names and numbers."
+        return "You are helpful."
+
+    def _user_prompt(self, mode: str, text: str, target_lang: Optional[str]) -> str:
+        if mode == "simplify":
+            return f"Rewrite the following in simple language:\n\n{text}"
+        if mode == "summarize":
+            return f"Summarize the following. Use bullets and end with 'Gist:' line.\n\n{text}"
+        if mode == "translate":
+            if not target_lang:
+                target_lang = "hi" if not _looks_hindi(text) else "en"
+            if target_lang == "hi":
+                return f"Translate into Hindi:\n\n{text}"
+            return f"Translate into English:\n\n{text}"
+        return text
+
+    def _llm_sync(self, text: str, mode: str, target_lang: Optional[str]) -> str:
         try:
-            return json.loads(m.group(0))
-        except Exception:
-            return None
+            messages = [
+                {"role": "system", "content": self._system_prompt(mode, target_lang)},
+                {"role": "user", "content": self._user_prompt(mode, text, target_lang)},
+            ]
+            resp = self._client.chat.completions.create(
+                model=self.model_name, messages=messages, stream=False
+            )
+            return resp.choices[0].message.content.strip()
+        except Exception as e:
+            raise ModelError(f"LLM error: {e}")
 
-    def stream_process(self, text: str, task: str = "simplify", language: str = "auto") -> Generator[str, None, None]:
-        result = self.process(text, task, language)
-        # Simulate token streaming by splitting by space
-        tokens = result["plain_language"].split()
-        for tok in tokens:
-            yield tok + " "
+    def _llm_stream(self, text: str, mode: str, target_lang: Optional[str]) -> Generator[str, None, None]:
+        try:
+            messages = [
+                {"role": "system", "content": self._system_prompt(mode, target_lang)},
+                {"role": "user", "content": self._user_prompt(mode, text, target_lang)},
+            ]
+            stream = self._client.chat.completions.create(
+                model=self.model_name, messages=messages, stream=True
+            )
+            for chunk in stream:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                if delta and getattr(delta, "content", None):
+                    yield delta.content
+        except Exception as e:
+            # Surface as ModelError so the route can map it to E502
+            raise ModelError(f"LLM stream error: {e}")
