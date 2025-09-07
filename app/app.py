@@ -10,11 +10,11 @@ from app.models.model_manager import ModelManager, ModelError
 from app.utils.security import require_api_key, AuthError, error_response
 from app.utils.sse import sse_event, sse_from_text_stream
 
-# Do NOT modify teammate 2's logic; just import and call.
+# Risk analyzer (teammate 2)
 try:
     from app.services.risk_analyzer import analyze_risk  # type: ignore
 except Exception:
-    analyze_risk = None  # handled gracefully below
+    analyze_risk = None  # handled gracefully
 
 app = Flask(__name__)
 # Broad CORS for frontend teammate; restrict in prod as needed
@@ -22,8 +22,12 @@ CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
 model = ModelManager()
 
+# ---------------------------
+# Helper functions
+# ---------------------------
+
 def _wants_streaming(req) -> bool:
-    # priority: explicit query/body, then Accept header
+    """Check if client requested streaming"""
     qs = req.args.get("stream")
     if qs is not None:
         return qs.lower() in {"1", "true", "yes"}
@@ -39,22 +43,26 @@ def _wants_streaming(req) -> bool:
 
 def _get_text() -> str:
     if not request.is_json:
-        raise AuthError(status_code=415, error_code="E415_UNSUPPORTED_MEDIA_TYPE",
-                        message="Content-Type must be application/json")
+        raise AuthError(
+            status_code=415,
+            error_code="E415_UNSUPPORTED_MEDIA_TYPE",
+            message="Content-Type must be application/json",
+        )
     data = request.get_json(silent=True) or {}
     text = (data.get("text") or "").strip()
     if not text:
-        raise AuthError(status_code=400, error_code="E400_MISSING_TEXT",
-                        message="Field 'text' is required and must be non-empty.")
+        raise AuthError(
+            status_code=400,
+            error_code="E400_MISSING_TEXT",
+            message="Field 'text' is required and must be non-empty.",
+        )
     return text
 
 def _translate_target_lang(data: Dict[str, Any]) -> str:
     tgt = (data.get("target_lang") or "").strip().lower()
     if tgt in {"en", "hi"}:
         return tgt
-    # If not provided, infer from text
     text = (data.get("text") or "")
-    # default target: opposite of detected script
     from app.models.model_manager import _looks_hindi
     return "en" if _looks_hindi(text) else "hi"
 
@@ -69,6 +77,10 @@ def _stream_response(gen: Generator[str, None, None], event: str = "chunk") -> R
         },
     )
 
+# ---------------------------
+# Error handlers
+# ---------------------------
+
 @app.errorhandler(AuthError)
 def _auth_error_handler(err: AuthError):
     return jsonify({
@@ -82,8 +94,11 @@ def _not_found(_):
 
 @app.errorhandler(Exception)
 def _unhandled(e: Exception):
-    # Don’t leak internals
     return jsonify({"ok": False, "error": {"code": "E500_INTERNAL", "message": "Internal server error"}}), 500
+
+# ---------------------------
+# Health endpoints
+# ---------------------------
 
 @app.get("/health")
 def health():
@@ -92,6 +107,10 @@ def health():
 @app.get("/api/v1/health")
 def health_v1():
     return jsonify({"ok": True, "service": "backend", "streaming": True})
+
+# ---------------------------
+# v1 Inference (generic task)
+# ---------------------------
 
 @app.post("/api/v1/inference")
 def inference_v1():
@@ -104,11 +123,10 @@ def inference_v1():
         raise AuthError(status_code=400, error_code="E400_MISSING_TEXT",
                         message="Field 'text' is required and must be non-empty.")
     
-    # Handle different tasks
     try:
         if task == "simplify":
             result = model.analyze_document(text=text, mode="simplify", stream=False)
-        elif task == "summarize": 
+        elif task == "summarize":
             result = model.analyze_document(text=text, mode="summarize", stream=False)
         elif task == "translate":
             target_lang = _translate_target_lang(data)
@@ -182,8 +200,7 @@ def full_analysis():
       - simplified
       - summary
       - risk (from teammate 2)
-    Supports SSE streaming:
-      event: simplify, summarize, risk, done
+    Supports SSE streaming
     """
     require_api_key(request)
     text = _get_text()
@@ -208,7 +225,7 @@ def full_analysis():
             yield sse_event("", event="done")
             return
 
-        # Risk (not streamed; send once)
+        # Risk (send once)
         try:
             if analyze_risk is None:
                 raise RuntimeError("Risk analyzer unavailable")
@@ -254,11 +271,13 @@ def full_analysis():
         }
     })
 
+# ---------------------------
+# Factory
+# ---------------------------
 
 def create_app():
     """Create and configure the Flask app for testing"""
     return app
-
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
