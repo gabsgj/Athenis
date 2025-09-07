@@ -1,114 +1,85 @@
-# app/app.py
-
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from app.models.model_manager import ModelManager
-from app.utils import security
+from app.utils.security import require_api_key
+from app.utils import sse
 
-# Mock LLM client
-class DummyLLMClient:
-    def complete(self, prompt: str) -> str:
-        return f"[LLM output] {prompt[:60]}..."
-
-    def stream(self, prompt: str):
-        for word in prompt.split():
-            yield word + " "
-
-llm_client = DummyLLMClient()
-model_manager = ModelManager(llm_client)
+# Import teammate 2's risk analyzer
+try:
+    from app.risk_module import risk_analyzer
+except ImportError:
+    risk_analyzer = None
 
 app = Flask(__name__)
-CORS(app)  # enable CORS for frontend teammate
+CORS(app)  # Enable CORS for frontend
+model = ModelManager()
 
-def require_api_key():
-    api_key = request.headers.get("X-API-Key")
-    if not api_key:
-        return {"error": True, "code": 1001, "message": "Missing API key"}, 401
-    if not security.verify_api_key(api_key):
-        return {"error": True, "code": 1002, "message": "Invalid API key"}, 403
-    return None
+# Utility: error response
+def error_response(message, code):
+    return jsonify({"error": message, "code": code}), 400
 
 @app.route("/api/simplify", methods=["POST"])
+@require_api_key
 def simplify():
-    check = require_api_key()
-    if check: return jsonify(check[0]), check[1]
+    data = request.get_json(force=True)
+    text = data.get("text", "")
+    if not text:
+        return error_response("Missing input text", "ERR_MISSING_TEXT")
 
-    data = request.json or {}
-    text = data.get("text")
-    stream = data.get("stream", False)
-
-    result = model_manager.analyze_document(text, mode="simplify", stream=stream)
-    if isinstance(result, dict) and result.get("error"):
-        return jsonify(result), 400
+    stream = request.args.get("stream") == "true"
     if stream:
-        return Response(result, mimetype="text/event-stream")
-    return jsonify(result)
+        return Response(sse.stream(model.analyze_document(text, "simplify", stream=True)),
+                        mimetype="text/event-stream")
+    return jsonify({"result": model.analyze_document(text, "simplify")})
 
 @app.route("/api/summarize", methods=["POST"])
+@require_api_key
 def summarize():
-    check = require_api_key()
-    if check: return jsonify(check[0]), check[1]
+    data = request.get_json(force=True)
+    text = data.get("text", "")
+    if not text:
+        return error_response("Missing input text", "ERR_MISSING_TEXT")
 
-    data = request.json or {}
-    text = data.get("text")
-    stream = data.get("stream", False)
-
-    result = model_manager.analyze_document(text, mode="summarize", stream=stream)
-    if isinstance(result, dict) and result.get("error"):
-        return jsonify(result), 400
+    stream = request.args.get("stream") == "true"
     if stream:
-        return Response(result, mimetype="text/event-stream")
-    return jsonify(result)
+        return Response(sse.stream(model.analyze_document(text, "summarize", stream=True)),
+                        mimetype="text/event-stream")
+    return jsonify({"result": model.analyze_document(text, "summarize")})
 
 @app.route("/api/translate", methods=["POST"])
+@require_api_key
 def translate():
-    check = require_api_key()
-    if check: return jsonify(check[0]), check[1]
+    data = request.get_json(force=True)
+    text = data.get("text", "")
+    target = data.get("target_lang", "hi")
+    if not text:
+        return error_response("Missing input text", "ERR_MISSING_TEXT")
 
-    data = request.json or {}
-    text = data.get("text")
-    target_lang = data.get("target_lang")
-    stream = data.get("stream", False)
-
-    result = model_manager.analyze_document(
-        text, mode="translate", stream=stream, target_lang=target_lang
-    )
-    if isinstance(result, dict) and result.get("error"):
-        return jsonify(result), 400
+    stream = request.args.get("stream") == "true"
     if stream:
-        return Response(result, mimetype="text/event-stream")
-    return jsonify(result)
+        return Response(sse.stream(model.analyze_document(text, "translate", stream=True, target_lang=target)),
+                        mimetype="text/event-stream")
+    return jsonify({"result": model.analyze_document(text, "translate", target_lang=target)})
 
 @app.route("/api/full-analysis", methods=["POST"])
+@require_api_key
 def full_analysis():
-    check = require_api_key()
-    if check: return jsonify(check[0]), check[1]
-
-    data = request.json or {}
-    text = data.get("text")
+    data = request.get_json(force=True)
+    text = data.get("text", "")
     if not text:
-        return jsonify({"error": True, "code": 2001, "message": "Text not provided"}), 400
+        return error_response("Missing input text", "ERR_MISSING_TEXT")
 
-    try:
-        simplified = model_manager.analyze_document(text, mode="simplify")
-        summarized = model_manager.analyze_document(text, mode="summarize")
-        
-        # Risk detection from teammate 2 (do not modify)
-        from app.teammate2.risk_module import analyze_risk
-        risk = analyze_risk(text)
+    simplified = model.analyze_document(text, "simplify")
+    summary = model.analyze_document(text, "summarize")
+    risk = None
+    if risk_analyzer:
+        risk = risk_analyzer(text)
 
-        return jsonify({
-            "simplified": simplified.get("result"),
-            "summary": summarized.get("result"),
-            "risk": risk
-        })
-
-    except Exception as e:
-        return jsonify({
-            "error": True,
-            "code": 3002,
-            "message": f"Full-analysis processing error: {str(e)}"
-        }), 500
+    return jsonify({
+        "simplified": simplified,
+        "summary": summary,
+        "risk_analysis": risk
+    })
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=5000)
