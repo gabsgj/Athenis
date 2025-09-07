@@ -1,23 +1,30 @@
+# utils/security.py
 import os
-from functools import wraps
-from flask import request, jsonify
+from flask import Request, jsonify
 
+class AuthError(Exception):
+    def __init__(self, status_code: int, error_code: str, message: str):
+        super().__init__(message)
+        self.status_code = status_code
+        self.error_code = error_code
+        self.message = message
 
-def require_api_key(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        api_key = os.getenv("API_KEY")
-        provided = request.headers.get("x-api-key") or request.args.get("api_key")
-        if not api_key or provided != api_key:
-            return jsonify({"error": "unauthorized", "message": "Invalid API key"}), 401
-        return f(*args, **kwargs)
-    return wrapper
+def require_api_key(request: Request) -> None:
+    """
+    Enforce API key on ALL /api/* endpoints.
+    Reads env var API_KEY and matches against 'X-API-Key' header.
+    """
+    expected = (os.getenv("API_KEY") or "").strip()
+    if not expected:
+        raise AuthError(status_code=401, error_code="E401_API_KEY_NOT_SET",
+                        message="Server misconfiguration: API_KEY is not set.")
+    provided = (request.headers.get("X-API-Key") or "").strip()
+    if not provided:
+        raise AuthError(status_code=401, error_code="E401_MISSING_API_KEY",
+                        message="Missing X-API-Key header.")
+    if provided != expected:
+        raise AuthError(status_code=401, error_code="E401_INVALID_API_KEY",
+                        message="Invalid API key.")
 
-
-def set_security_headers(resp):
-    resp.headers["X-Content-Type-Options"] = "nosniff"
-    resp.headers["X-Frame-Options"] = "DENY"
-    resp.headers["Referrer-Policy"] = "no-referrer"
-    resp.headers["X-XSS-Protection"] = "1; mode=block"
-    resp.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:"
-    return resp
+def error_response(code: str, message: str, status: int = 400):
+    return jsonify({"ok": False, "error": {"code": code, "message": message}}), status
