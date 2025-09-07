@@ -1,10 +1,11 @@
 import os
 import numpy as np
+import hashlib
 from typing import List
 
 try:
     from sentence_transformers import SentenceTransformer
-except Exception:
+except ImportError:
     SentenceTransformer = None
 
 
@@ -19,26 +20,31 @@ class Embedder:
                 self.model = None
 
     def embed(self, texts: List[str]) -> np.ndarray:
-        if self.model is None:
-            # Simple fallback: hash-based pseudo-embeddings
-            arr = []
-            for t in texts:
-                rng = np.random.default_rng(abs(hash(t)) % (2**32))
-                arr.append(rng.standard_normal(384))
-            return np.array(arr)
-        return np.array(self.model.encode(texts, convert_to_numpy=True))
+        if self.model:
+            return self.model.encode(texts, convert_to_numpy=True)
+        
+        # Fallback to deterministic random vectors
+        vectors = []
+        for text in texts:
+            seed = int(hashlib.sha256(text.encode('utf-8')).hexdigest(), 16) % (2**32)
+            rng = np.random.default_rng(seed)
+            vectors.append(rng.random(384, dtype=np.float32))
+        return np.array(vectors)
 
-    def search(self, query: str, corpus: List[str], top_k: int = 5):
+    def search(self, query: str, corpus: List[str], top_k: int = 3):
         if not corpus:
             return []
-        all_texts = [query] + corpus
-        embs = self.embed(all_texts)
-        q = embs[0]
-        docs = embs[1:]
-        sims = docs @ q / (np.linalg.norm(docs, axis=1) * np.linalg.norm(q) + 1e-9)
-        idxs = np.argsort(-sims)[:top_k]
-        return [(int(i), float(sims[i])) for i in idxs]
-     # 🔹 Stub for risk_detector
+        
+        query_vec = self.embed([query])[0]
+        corpus_vecs = self.embed(corpus)
+        
+        # Cosine similarity
+        sim = np.dot(corpus_vecs, query_vec) / (np.linalg.norm(corpus_vecs, axis=1) * np.linalg.norm(query_vec))
+        
+        # Get top_k results
+        top_indices = np.argsort(-sim)[:top_k]
+        return [(i, sim[i]) for i in top_indices]
+
     def find_similar_risks(self, text: str):
-        # Return empty list or dummy results for testing
+        # This is a stub as per the instructions
         return []

@@ -1,49 +1,59 @@
 # syntax=docker/dockerfile:1
-ARG FAST_BUILD=0
+
+ARG TARGET=cpu
 ARG DEBIAN_FRONTEND=noninteractive
 
-# Use CPU-only slim base for sandbox fast builds; fall back to CUDA for GPU-capable deployments
+# CPU Stage (for fast builds and Sandbox)
 FROM python:3.11-slim AS cpu
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl libgl1-mesa-glx \
-    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY requirements-min.txt ./
-RUN pip install --no-cache-dir -r requirements-min.txt
-COPY app ./app
-COPY .env.example ./
-ENV PORT=8080
-EXPOSE 8080
-RUN useradd -m -u 1001 appuser && chown -R 1001:1001 /app
-USER appuser
-CMD ["python", "-m", "app.app"]
 
-FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS gpu
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
-# System deps
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip python3-venv git curl libgl1-mesa-glx && \
+RUN apt-get update && apt-get install -y --no-install-recommends curl gunicorn && \
     rm -rf /var/lib/apt/lists/*
 
-# Create user
+COPY requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY ./app ./app
+
 RUN useradd -m -u 1001 appuser
+RUN chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8080
+CMD ["gunicorn", "-w", "2", "-k", "gthread", "-b", "0.0.0.0:8080", "app.wsgi:application"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD curl -f http://localhost:8080/api/v1/health || exit 1
+
+# GPU Stage (for future production)
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS gpu
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:64
 WORKDIR /app
 
-# Copy python code
-COPY requirements.txt ./
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3.11-pip git curl libgl1-mesa-glx gunicorn && \
+    rm -rf /var/lib/apt/lists/* && \
+    ln -s /usr/bin/python3.11 /usr/bin/python && \
+    ln -s /usr/bin/pip /usr/bin/pip3
 
-COPY app ./app
-COPY .env.example ./
-ENV PORT=8080
-EXPOSE 8080
+COPY requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY ./app ./app
+
+RUN useradd -m -u 1001 appuser
+RUN chown -R appuser:appuser /app
 USER appuser
-CMD ["python3", "-m", "app.app"]
 
-# Default to CPU stage as final image (Sandbox-friendly). Use --target gpu for GPU builds.
-FROM cpu
+EXPOSE 8080
+CMD ["gunicorn", "-w", "2", "-k", "gthread", "-b", "0.0.0.0:8080", "app.wsgi:application"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD curl -f http://localhost:8080/api/v1/health || exit 1
+
+# Final stage
+FROM ${TARGET}

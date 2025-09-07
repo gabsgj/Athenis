@@ -1,33 +1,66 @@
 package handlers
 
 import (
-	"encoding/json"
+	"io"
 	"net/http"
+	"os"
 	"os/exec"
+
+	"gofr.dev/pkg/gofr"
 )
 
-// RiskRequest is the input JSON
-type RiskRequest struct {
-	Text string `json:"text"`
+type handler struct {
+	pyScriptPath string
 }
 
-// RiskAnalyzer handles POST /analyze
-func RiskAnalyzer(w http.ResponseWriter, r *http.Request) {
-	var req RiskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid input", http.StatusBadRequest)
-		return
+// New creates a new handler with the given python script path
+func New(pyScriptPath string) *handler {
+	return &handler{pyScriptPath: pyScriptPath}
+}
+
+// Health is a simple health check endpoint
+func (h *handler) Health(c *gofr.Context) (interface{}, error) {
+	return map[string]bool{"ok": true}, nil
+}
+
+// Ingest handles file uploads, extracts text using a python script, and returns the text.
+func (h *handler) Ingest(c *gofr.Context) (interface{}, error) {
+	// Parse multipart form
+	if err := c.Request.ParseMultipartForm(10 << 20); err != nil { // 10 MB
+		return nil, gofr.NewError(http.StatusBadRequest, "Invalid file upload request")
 	}
 
-	// Call the Python script
-	cmd := exec.Command("python", "risk_detector.py", req.Text)
-    cmd.Dir = "C:\\Users\\Nayana\\Downloads\\legal_simplify\\hackOdisha\\app\\models"
-	output, err := cmd.Output()
+	file, _, err := c.Request.FormFile("file")
 	if err != nil {
-		http.Error(w, "Error running risk detector", http.StatusInternalServerError)
-		return
+		return nil, gofr.NewError(http.StatusBadRequest, "Missing 'file' in form data")
+	}
+	defer file.Close()
+
+	// Create a temporary file
+	tempFile, err := os.CreateTemp("/tmp", "upload-*.tmp")
+	if err != nil {
+		return nil, gofr.NewError(http.StatusInternalServerError, "Could not create temporary file")
+	}
+	defer os.Remove(tempFile.Name())
+
+	// Copy uploaded file to temporary file
+	bytesCopied, err := io.Copy(tempFile, file)
+	if err != nil {
+		return nil, gofr.NewError(http.StatusInternalServerError, "Could not save uploaded file")
+	}
+	tempFile.Close() // Close so the python script can open it
+
+	// Execute the python script
+	cmd := exec.CommandContext(c.Request.Context(), "python", h.pyScriptPath, "--path", tempFile.Name())
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		c.Logger.Errorf("Python script execution failed: %v, Output: %s", err, string(output))
+		return nil, gofr.NewError(http.StatusInternalServerError, "Error running extraction script")
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(output)
+	return map[string]interface{}{
+		"ok":    true,
+		"text":  string(output),
+		"bytes": bytesCopied,
+	}, nil
 }

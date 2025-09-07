@@ -1,5 +1,21 @@
 # ATHENIS – Legal Jargon / Global Document Simplifier
 
+## 🚀 Deploy on Akash Sandbox
+
+1. Push repo to GitHub main branch.  
+2. Wait for GitHub Actions to finish.  
+3. Your Docker image will be available at:  
+```
+ghcr.io/gabsgj/hackodisha/athenis:latest
+```
+4. Open [Akash Sandbox Console](https://console.akash.network/sandbox).  
+5. Deploy app → set **Image** = URL above.  
+6. Set **Port = 8080**.  
+7. (Optional) Add env vars like `API_KEY=secret123`.  
+8. Deploy → you'll get a public URL 🎉.
+
+---
+
 A **production-ready Flask web app** powered by GPU-based LLMs for simplifying legal documents.
 Backed by a **Go microservice** for document ingestion (PDF/DOCX/TXT → text, chunking, language detection).
 

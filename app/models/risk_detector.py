@@ -2,95 +2,86 @@
 
 import re
 from typing import List, Dict
+from app.models.embeddings import Embedder
+from app.utils.extract import split_into_clauses
 
-# Import Embedder for semantic similarity (stub-ready)
-try:
-    from app.models.embeddings import Embedder
-except ImportError:
-    Embedder = None
-
-# -----------------------------
-# Risk patterns (regex heuristics)
-# -----------------------------
-RISK_PATTERNS = {
-    "auto_renew": re.compile(r"automatic renewal|auto[- ]renew", re.I),
-    "indemnification": re.compile(r"indemnification|indemnity", re.I),
-    "arbitration": re.compile(r"arbitration|dispute resolution", re.I),
-    "liability_limit": re.compile(r"limitation of liability|liability is limited", re.I),
-    "termination_penalty": re.compile(r"termination fee|early termination", re.I),
-    "hidden_fees": re.compile(r"additional charges|hidden fees|escalating costs?", re.I),
-    "data_sharing": re.compile(r"share.*data|third[- ]party data", re.I)
+RISK_RULES = {
+    "auto_renew": {
+        "pattern": re.compile(r"automatic(ally)? renew(s|al)?|auto-renew", re.I),
+        "severity": "medium",
+        "explanation": "This contract may automatically renew without your explicit consent.",
+        "suggested_action": "Clarify the renewal process and set a reminder for the cancellation deadline."
+    },
+    "indemnification": {
+        "pattern": re.compile(r"indemnify|indemnification|hold harmless", re.I),
+        "severity": "high",
+        "explanation": "You may be responsible for legal costs or damages incurred by the other party.",
+        "suggested_action": "Consult a legal professional to understand the scope of this clause."
+    },
+    "termination_for_convenience": {
+        "pattern": re.compile(r"terminate for convenience", re.I),
+        "severity": "medium",
+        "explanation": "The other party can end the contract at any time without cause.",
+        "suggested_action": "Negotiate for a mutual termination clause or a penalty for termination for convenience."
+    },
+    "limitation_of_liability": {
+        "pattern": re.compile(r"limitation of liability", re.I),
+        "severity": "high",
+        "explanation": "The other party's financial responsibility for damages is capped, potentially at a low amount.",
+        "suggested_action": "Ensure the liability cap is reasonable and covers potential damages."
+    }
 }
 
-# Severity levels
-RISK_SEVERITY = {
-    "auto_renew": "medium",
-    "indemnification": "high",
-    "arbitration": "medium",
-    "liability_limit": "high",
-    "termination_penalty": "high",
-    "hidden_fees": "medium",
-    "data_sharing": "high"
-}
+embedder = Embedder()
 
-# -----------------------------
-# Embedder instance (stub)
-# -----------------------------
-embeddings = Embedder() if Embedder else None
-
-# -----------------------------
-# Risk detection function
-# -----------------------------
 def detect_risks(text: str) -> List[Dict]:
-    """Detect risks using regex + semantic similarity."""
-    results = []
-    risk_id = 1
-
-    # Regex heuristic matches
-    for risk_type, pattern in RISK_PATTERNS.items():
-        for match in pattern.finditer(text):
+    """
+    Detects risks in a given text using regex heuristics and semantic scoring.
+    """
+    risks = []
+    for risk_type, rules in RISK_RULES.items():
+        for match in rules["pattern"].finditer(text):
             start, end = match.span()
-            excerpt = text[start:end]
-            results.append({
-                "id": f"{risk_type}-{risk_id}",
+            excerpt = text[max(0, start - 40):min(len(text), end + 40)]
+            
+            # Use embedder to refine confidence
+            confidence = 0.8  # Base confidence for regex match
+            if embedder:
+                # This is a conceptual example. Real implementation would be more complex.
+                similarity = embedder.search(text, [risk_type])[0][1] if embedder.search(text, [risk_type]) else 0
+                confidence = min(1.0, confidence + (similarity * 0.2))
+
+            risks.append({
+                "id": f"{risk_type}-{start}",
                 "type": risk_type,
                 "excerpt": excerpt,
                 "start_idx": start,
                 "end_idx": end,
-                "severity": RISK_SEVERITY.get(risk_type, "medium"),
-                "explanation": f"Heuristic match for {risk_type}",
-                "confidence": 0.9,
-                "suggested_action": "Review clause; negotiate clearer or fairer terms."
+                "severity": rules["severity"],
+                "explanation": rules["explanation"],
+                "confidence": confidence,
+                "suggested_action": rules["suggested_action"]
             })
-            risk_id += 1
+    return risks
 
-    # Semantic similarity (stub-ready)
-    if embeddings and hasattr(embeddings, "find_similar_risks"):
-        semantic_results = embeddings.find_similar_risks(text)
-        if semantic_results:
-            for r in semantic_results:
-                r["id"] = f"semantic-{risk_id}"
-                results.append(r)
-                risk_id += 1
-
-    return results
-
-# -----------------------------
-# Full clause analysis
-# -----------------------------
 def full_clause_analysis(text: str) -> List[Dict]:
-    """Split text into clauses, run detection, attach confidence scores."""
-    # Simple clause splitting: split on period, semicolon, newline
-    clauses = [cl.strip() for cl in re.split(r'[.;\n]', text) if cl.strip()]
-    if not clauses:
-        clauses = [text]
+    """
+    Splits text into clauses, applies risk detection to each, and de-duplicates the results.
+    """
 
-    results = []
+    clauses = split_into_clauses(text)
+    all_risks = []
     for clause in clauses:
-        clause_results = detect_risks(clause)
-        results.extend(clause_results)
-
-    return results
+        all_risks.extend(detect_risks(clause))
+    
+    # De-duplicate risks based on span
+    unique_risks = {}
+    for risk in all_risks:
+        key = (risk['start_idx'], risk['end_idx'])
+        if key not in unique_risks or risk['confidence'] > unique_risks[key]['confidence']:
+            unique_risks[key] = risk
+            
+    return list(unique_risks.values())
 
 # -----------------------------
 # CLI entry point (optional)

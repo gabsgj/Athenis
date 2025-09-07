@@ -2,45 +2,51 @@ version: "2.0"
 
 services:
   web:
-    image: ghcr.io/OWNER/REPO:latest
+    image: ghcr.io/gabsgj/hackodisha/athenis:latest
     expose:
       - port: 8080
-        as: 8080
+        as: 80
         to:
           - global: true
     env:
-      - API_KEY=${API_KEY}
-      - MODEL_NAME=${MODEL_NAME}
-      - QUANTIZE=${QUANTIZE}
+      - API_KEY=secret-key-from-akash-env
+      - MODEL_NAME=TinyLlama/TinyLlama-1.1B-Chat-v1.0
+      - QUANTIZE=8bit
       - REDIS_URL=${REDIS_URL}
       - EXTERNAL_LLM_API_URL=${EXTERNAL_LLM_API_URL}
       - GOFR_URL=http://gofr:8090
-      - RATE_LIMIT_PER_MIN=${RATE_LIMIT_PER_MIN}
-      - LOG_LEVEL=${LOG_LEVEL}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL}
-      - FAST_TEST=${FAST_TEST}
+      - RATE_LIMIT_PER_MIN=30
+      - LOG_LEVEL=info
+      - FAST_TEST=0
+    resources:
+      cpu:
+        units: 1
+      memory:
+        size: 2Gi
+      storage:
+        size: 5Gi
+      gpu:
+        units: 1
+        attributes:
+          vendor:
+            nvidia:
+              - model: h100
+              - model: a100
+    
+  gofr:
+    image: ghcr.io/gabsgj/athenis-gofr:latest
+    expose:
+      - port: 8090
+        to:
+          - service: "web"
+    env:
+      - PORT=8090
+      - PY_EXTRACT_SCRIPT=/app/app/utils/extract.py
     resources:
       cpu:
         units: 0.5
       memory:
-        size: 1Gi
-      storage:
-        size: 2Gi
-
-  gofr:
-    image: ghcr.io/OWNER/REPO-gofr:latest
-    expose:
-      - port: 8090
-        as: 8090
-        to:
-          - service: web
-    env:
-      - PORT=8090
-    resources:
-      cpu:
-        units: 0.25
-      memory:
-        size: 256Mi
+        size: 512Mi
       storage:
         size: 1Gi
 
@@ -49,33 +55,30 @@ profiles:
     web:
       resources:
         cpu:
-          units: 0.5
+          units: 1
         memory:
-          size: 1Gi
-        storage:
           size: 2Gi
+        storage:
+          size: 5Gi
+        gpu:
+          units: 1
     gofr:
       resources:
         cpu:
-          units: 0.25
+          units: 0.5
         memory:
-          size: 256Mi
+          size: 512Mi
         storage:
           size: 1Gi
   placement:
     dcloud:
-      attributes:
-        host: akash
-      signedBy:
-        anyOf:
-          - akash1365yvmc8n6dq36y60c9e5hzs25s9a6a6d46h8x
       pricing:
         web:
           denom: uakt
-          amount: 100
+          amount: 10000
         gofr:
           denom: uakt
-          amount: 100
+          amount: 5000
 
 deployment:
   web:

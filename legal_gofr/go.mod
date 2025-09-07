@@ -1,8 +1,8 @@
 module legal_gofr
 
-go 1.25.1
+go 1.22
 
-require gofr.dev v1.44.1
+require gofr.dev/pkg v1.4.1
 
 require (
 	cloud.google.com/go v0.120.0 // indirect

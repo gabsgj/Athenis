@@ -1,4 +1,5 @@
 import os
+from functools import wraps
 from flask import request as flask_request, jsonify
 
 
@@ -11,15 +12,13 @@ class AuthError(Exception):
         self.error_code = error_code
 
 
-def require_api_key(arg=None):
+def require_api_key(func_or_key=None):
     """
-    Flexible API-key check:
-    - If passed a Flask request-like object, perform the check immediately.
-    - If called with no args or a string, behave as a decorator with expected key.
+    Flexible API-key check decorator.
+    Can be used as @require_api_key or @require_api_key("custom_key")
     """
-    expected_key = arg if isinstance(arg, str) or arg is None else None
-
-    def _check(req):
+    
+    def _check(req, expected_key=None):
         hdr = None
         try:
             hdr = req.headers.get("X-API-Key")
@@ -32,18 +31,20 @@ def require_api_key(arg=None):
         if hdr != exp:
             raise AuthError("Invalid API key", status_code=401, error_code="E401_INVALID_API_KEY")
 
-    # Direct-check mode
-    if hasattr(arg, "headers"):
-        _check(arg)
-        return True
-
-    # Decorator mode
-    def decorator(func):
+    def decorator(func, expected_key=None):
+        @wraps(func)
         def wrapper(*args, **kwargs):
-            _check(flask_request)
+            _check(flask_request, expected_key)
             return func(*args, **kwargs)
         return wrapper
-    return decorator
+
+    # If called with a function (no parentheses), return the decorated function
+    if callable(func_or_key):
+        return decorator(func_or_key)
+    
+    # If called with arguments or no arguments, return a decorator function
+    expected_key = func_or_key if isinstance(func_or_key, str) else None
+    return lambda func: decorator(func, expected_key)
 
 
 def error_response(code: str, message: str, status: int = 400):

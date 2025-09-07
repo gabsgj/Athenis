@@ -1,49 +1,29 @@
 import os
-import json
-import hashlib
-from typing import Dict, Any, Generator, List
-from concurrent.futures import ThreadPoolExecutor
+import requests
 
-# Torch stub for tests
+# Optional imports for AI functionality
 try:
     import torch
-except Exception:
-    class _Cuda:
-        @staticmethod
-        def is_available():
-            return False
+except ImportError:
+    class TorchStub:
+        class cuda:
+            @staticmethod
+            def is_available():
+                return False
+            @staticmethod
+            def memory_allocated():
+                return 0
+    torch = TorchStub()
 
-        @staticmethod
-        def memory_allocated():
-            return 0
-
-        @staticmethod
-        def get_device_name(_):
-            return "cpu"
-
-    class _TorchStub:
-        cuda = _Cuda()
-        float16 = None
-        float32 = None
-
-    torch = _TorchStub()
-
-# Transformers stub for tests
 try:
-    from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
-except Exception:
+    from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline, BitsAndBytesConfig
+except ImportError:
     AutoTokenizer = None
     AutoModelForCausalLM = None
     pipeline = None
+    BitsAndBytesConfig = None
 
-# App imports
 from app.models.prompt_manager import PromptManager
-from app.models.embeddings import Embedder
-from app.models.risk_detector import detect_risks, full_clause_analysis
-from app.utils.logging import logger
-
-import time
-import requests
 
 
 class ModelError(Exception):
@@ -52,235 +32,108 @@ class ModelError(Exception):
 
 
 class ModelManager:
-    def __init__(self, cache=None):
-        self.cache = cache
+    def __init__(self):
         self.model_name = os.getenv("MODEL_NAME", "TinyLlama/TinyLlama-1.1B-Chat-v1.0")
-        self.quantize = os.getenv("QUANTIZE", "8bit")
+        self.quantize = os.getenv("QUANTIZE")
+        self.external_llm_url = os.getenv("EXTERNAL_LLM_API_URL")
+        self.fast_test = os.getenv("FAST_TEST") == "1"
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.prompt = PromptManager()
-        self.embedder = Embedder()
-        self.tokenizer = None
+        self.last_device = self.device
         self.model = None
+        self.tokenizer = None
         self.generator = None
-        self._executor = ThreadPoolExecutor(max_workers=os.cpu_count() or 4)
+        self.prompt_manager = PromptManager()
 
-    def _translate(self, text: str, target_lang: str = "hi") -> str:
-        """Very simple bilingual translation dictionary (stub)."""
-        dictionary = {
-            "hello": "नमस्ते",
-            "world": "दुनिया",
-            "good": "अच्छा",
-            "bad": "खराब"
-        }
-        if target_lang == "hi":
-            return " ".join([dictionary.get(w.lower(), w) for w in text.split()])
-        elif target_lang == "en":
-            reverse_dict = {v: k for k, v in dictionary.items()}
-            return " ".join([reverse_dict.get(w, w) for w in text.split()])
-        else:
-            return text
+        if not self.fast_test and not self.external_llm_url:
+            self._load_local_model()
 
-    def _load_model(self):
+    def _load_local_model(self):
+        if not AutoTokenizer or not AutoModelForCausalLM or not pipeline:
+            raise ModelError("Transformers library not available. Install transformers or use external API.")
+        
         try:
-            if AutoTokenizer is None or AutoModelForCausalLM is None or pipeline is None:
-                raise RuntimeError("transformers not available")
-            
-            bnb_args = {}
-            if self.device == "cuda" and self.quantize in ("8bit", "4bit"):
-                try:
-                    import bitsandbytes
-                except ImportError:
-                    logger.warning("bitsandbytes not available; proceeding without quantization")
-                    self.quantize = "none"
-                
+            quantization_config = None
+            if self.device == "cuda" and BitsAndBytesConfig:
                 if self.quantize == "8bit":
-                    bnb_args = {"load_in_8bit": True, "device_map": "auto"}
-                else:
-                    bnb_args = {"load_in_4bit": True, "device_map": "auto"}
-            elif self.device == "cuda":
-                bnb_args = {"device_map": "auto"}
+                    quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+                elif self.quantize == "4bit":
+                    quantization_config = BitsAndBytesConfig(load_in_4bit=True)
 
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            if self.tokenizer.pad_token is None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
-                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-                **bnb_args,
+                quantization_config=quantization_config,
+                device_map='auto' if self.device == 'cuda' else None,
             )
             self.generator = pipeline(
                 "text-generation",
                 model=self.model,
                 tokenizer=self.tokenizer,
-                device=0 if self.device == "cuda" else -1,
-                pad_token_id=self.tokenizer.eos_token_id,
+                max_new_tokens=512,
+                temperature=0.2,
+                do_sample=False,
             )
-            logger.info("model_loaded", model=self.model_name, device=self.device, quantize=self.quantize)
         except Exception as e:
-            logger.exception("model_load_failed", error=str(e))
-            self.model = None
-            self.tokenizer = None
-            self.generator = None
+            raise ModelError(f"Failed to load local model: {e}")
 
-    def _unload_model(self):
-        """Unloads the model to free up memory."""
-        if self.model:
-            try:
-                del self.model
-                del self.tokenizer
-                del self.generator
-                if self.device == "cuda":
-                    torch.cuda.empty_cache()
-                logger.info("model_unloaded")
-            except Exception as e:
-                logger.error("failed_to_unload_model", error=str(e))
+    def _external_call(self, prompt):
+        try:
+            response = requests.post(self.external_llm_url, json={"prompt": prompt})
+            response.raise_for_status()
+            return response.json().get("text", "")
+        except requests.RequestException as e:
+            raise ModelError(f"External LLM API call failed: {e}")
 
-    def gpu_info(self):
-        if torch.cuda.is_available():
-            mem = torch.cuda.memory_allocated()
-            return {"device": torch.cuda.get_device_name(0), "memory": int(mem)}
-        return {"device": "cpu", "memory": 0}
+    def process(self, text: str, task: str, language: str = "en"):
+        if self.fast_test:
+            return {"plain_language": f"[{task.upper()} stub] {text[:50]}"}
 
-    def _chunk_text(self, text: str, chunk_size: int = 1200, overlap: int = 200) -> List[str]:
-        chunks = []
-        n = len(text)
-        i = 0
-        while i < n:
-            end = min(i + chunk_size, n)
-            chunks.append(text[i:end])
-            if end == n:
-                break
-            i = end - overlap
-            if i < 0:
-                i = 0
-        return chunks
-
-    def _summarize_chunk(self, chunk: str) -> str:
-        prompt = self.prompt.build("summarize", chunk)
-        return self._generate_text(prompt, max_new_tokens=180).strip()
-
-    def _summarize_chunks(self, chunks: List[str]) -> str:
-        if not chunks:
-            return ""
-        
-        summaries = self._executor.map(self._summarize_chunk, chunks)
-        merged = "\n".join(summaries)
-        return merged[:4000]
-
-    def _generate_text(self, prompt: str, max_new_tokens: int = 256) -> str:
-        if os.getenv("FAST_TEST") == "1":
-            return (" " + prompt.split("\n")[-1]).strip()[:max_new_tokens]
-        
-        if self.generator is None:
-            self._load_model()
-
-        if self.generator is None:
-            ext = os.getenv("EXTERNAL_LLM_API_URL")
-            if ext:
-                try:
-                    resp = requests.post(ext, json={"prompt": prompt, "max_new_tokens": max_new_tokens}, timeout=60)
-                    resp.raise_for_status()
-                    data = resp.json()
-                    return data.get("text") or data.get("output") or ""
-                except requests.exceptions.RequestException as e:
-                    # fall through to echo fallback
-                    logger.warning("external_llm_failed_fallback_echo", error=str(e))
-            # Safe echo fallback to keep API responsive without models
-            logger.warning("no_model_no_external_using_echo_fallback")
-            return (" " + prompt.split("\n")[-1]).strip()[:max_new_tokens]
+        prompt = self.prompt_manager.build(task, text, language)
 
         try:
-            res = self.generator(prompt, max_new_tokens=max_new_tokens, do_sample=True, temperature=0.3, top_p=0.9)
-            return res[0]["generated_text"][len(prompt):]
+            if self.external_llm_url:
+                result = self._external_call(prompt)
+            elif self.generator:
+                generated_outputs = self.generator(prompt)
+                result = generated_outputs[0]['generated_text'][len(prompt):]
+            else:
+                raise ModelError("No model or external API available.")
+            
+            return {"plain_language": result.strip()}
         except Exception as e:
-            # fallback to echo if local generation fails
-            logger.warning("local_generation_failed_fallback_echo", error=str(e))
-            return (" " + prompt.split("\n")[-1]).strip()[:max_new_tokens]
+            return {"error": True, "message": str(e)}
 
-    def process(self, text: str, task: str = "simplify", language: str = "auto") -> Dict[str, Any]:
-        if not text:
-            return {"error": "empty_text", "message": "No text provided"}
-        
-        cache_key = hashlib.sha256(f"{text}:{task}:{language}".encode('utf-8')).hexdigest()
-        cached = self.cache.get(cache_key) if self.cache else None
-        if cached:
-            return cached
-
-        chunks = self._chunk_text(text)
-        merged_summary = self._summarize_chunks(chunks) if len(text) > 1500 else text
-
-        idxs = self.embedder.search(merged_summary, chunks, top_k=5)
-        context = "\n".join([chunks[i] for i, _ in idxs]) if idxs else text
-
-        prompt = self.prompt.build(task, context)
-        try:
-            generated = self._generate_text(prompt, max_new_tokens=512)
-        except ModelError as e:
-            return {"error": "model_generation_failed", "message": str(e)}
-
-        # The fix: Correctly call full_clause_analysis for the 'risk' task.
-        if task == "risk":
-            risks = full_clause_analysis(text)
-        else:
-            risks = detect_risks(text)
-
-        refine_prompt = (
-            "Normalize the following risks into JSON list with fields id,type,clause_excerpt,severity,explanation,suggested_action.\n"
-            f"Risks: {json.dumps(risks)}\nJSON:"
-        )
-        try:
-            refined = self._generate_text(refine_prompt, max_new_tokens=256)
-            refined_json = self._safe_json_list(refined) or risks
-        except Exception:
-            refined_json = risks
-
-        paras = [p.strip() for p in text.split("\n") if p.strip()][:5]
-        clause_expl = []
-        for p in paras:
-            try:
-                pe = self._generate_text(self.prompt.build("summarize", p), max_new_tokens=80).strip()
-                clause_expl.append({"clause": p[:200], "explanation": pe})
-            except Exception:
-                clause_expl.append({"clause": p[:200], "explanation": "Could not generate explanation."})
-        
-        result = {
-            "overview": merged_summary if merged_summary != text else generated[:500],
-            "plain_language": generated.strip(),
-            "clause_explanations": clause_expl,
-            "risks_detected": refined_json,
-            "meta": {"model": self.model_name, "device": self.device, "chunks": len(chunks)},
-        }
-
-        if self.cache:
-            self.cache.set(cache_key, result)
-        
-        return result
-
-    def _safe_json_list(self, text: str):
-        import re, json
-        # Use a non-greedy regex to match only the first JSON list.
-        m = re.search(r"\[.*?\]", text, re.S)
-        if not m:
-            return None
-        try:
-            return json.loads(m.group(0))
-        except json.JSONDecodeError:
-            logger.warning("Failed to decode JSON list from LLM output.")
-            return None
-
-    def stream_process(self, text: str, task: str = "simplify", language: str = "auto") -> Generator[str, None, None]:
-        result = self.process(text, task, language)
-        if "error" in result:
-            yield json.dumps(result)
+    def stream_process(self, text: str, task: str, language: str = "en"):
+        if self.fast_test:
+            stub_text = f"[{task.upper()} stub] {text[:50]}"
+            for word in stub_text.split():
+                yield word + " "
             return
 
-        tokens = result["plain_language"].split()
-        for tok in tokens:
-            yield tok + " "
-
-    def analyze_document(self, text: str, mode: str, stream=False, target_lang="hi"):
-        if stream:
-            return self.stream_process(text, task=mode, language=target_lang)
+        prompt = self.prompt_manager.build(task, text, language)
+        
+        if self.external_llm_url:
+            # Streaming from external URL not implemented in this example
+            result = self._external_call(prompt)
+            for word in result.split():
+                yield word + " "
+        elif self.generator:
+            # This is a simplified stream, real streaming requires more complex setup
+            generated_outputs = self.generator(prompt)
+            result = generated_outputs[0]['generated_text'][len(prompt):]
+            for word in result.split():
+                yield word + " "
         else:
-            result = self.process(text, task=mode, language=target_lang)
-            if "error" in result:
+            yield "Error: No model or external API available."
+
+    def analyze_document(self, text: str, mode: str, stream=False, target_lang="en"):
+        if stream:
+            return self.stream_process(text, mode, target_lang)
+        else:
+            result = self.process(text, mode, target_lang)
+            if result.get("error"):
                 raise ModelError(result["message"])
-            return result["plain_language"]
+            return result.get("plain_language", "")
