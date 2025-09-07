@@ -84,9 +84,9 @@ func saveUploadedFile(file multipart.File, header *multipart.FileHeader) (string
 // returns full path to script or empty string
 func findExtractor() string {
 	candidates := []string{
-		"./app/utils/extract.py",               // repo root (Windows)
-		"app/utils/extract.py",                 // repo root (Linux)
-		"/app/app/utils/extract.py",            // Dockerfile copies to /app/app/utils
+		"./app/utils/extract.py",    // repo root (Windows)
+		"app/utils/extract.py",      // repo root (Linux)
+		"/app/app/utils/extract.py", // Dockerfile copies to /app/app/utils
 		filepath.Join(".", "app", "utils", "extract.py"),
 	}
 	for _, p := range candidates {
@@ -144,6 +144,9 @@ func writeJSON(w http.ResponseWriter, v interface{}, code int) {
 }
 
 func ingestHandler(w http.ResponseWriter, r *http.Request) {
+	// debug log: incoming request
+	log.Printf("incoming %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+
 	// handle CORS preflight
 	if r.Method == http.MethodOptions {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -201,6 +204,7 @@ func ingestHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("incoming %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
 	writeJSON(w, map[string]string{"status": "ok"}, http.StatusOK)
 }
 
@@ -212,8 +216,21 @@ func main() {
 	if port == "" {
 		port = "8090"
 	}
+
+	// Helpful debug prints so you can see extractor and python choices at startup
+	log.Printf("extractor candidate found at: %s", findExtractor())
+	log.Printf("python binary candidate: %s", findPythonExec())
+
 	http.HandleFunc("/ingest", ingestHandler)
 	http.HandleFunc("/health", healthHandler)
+
+	// simple ping endpoint for quick connectivity tests
+	http.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("incoming %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("pong"))
+	})
+
 	log.Printf("Go ingest service listening on :%s", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
