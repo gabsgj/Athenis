@@ -32,6 +32,7 @@ import json
 from typing import Generator, Any, Dict
 
 from flask import Flask, request, jsonify, Response, stream_with_context, send_from_directory
+import requests as httpx
 from flask_cors import CORS
 
 from app.models.model_manager import ModelManager, ModelError
@@ -53,6 +54,9 @@ CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
 model = ModelManager()
 metrics = Metrics()
+
+# Internal service base (used for proxying file uploads):
+GOFR_URL = os.getenv("GOFR_URL", "http://localhost:8090").rstrip("/")
 
 # ---------------------------
 # Helper functions
@@ -164,6 +168,24 @@ def serve_styles_css():
 @app.get("/public/<path:filename>")
 def serve_public(filename: str):
     return send_from_directory(os.path.join(app.root_path, "templates", "public"), filename)
+
+# ---------------------------
+# Proxy: /gofr -> Go ingestion service
+# ---------------------------
+
+@app.post("/gofr/ingest")
+def proxy_gofr_ingest():
+    try:
+        files = {}
+        if "file" in request.files:
+            f = request.files["file"]
+            files["file"] = (f.filename, f.stream, f.mimetype)
+        data = dict(request.form)
+        url = f"{GOFR_URL}/ingest"
+        resp = httpx.post(url, files=files or None, data=data, timeout=60)
+        return Response(resp.content, status=resp.status_code, headers={"Content-Type": resp.headers.get("Content-Type", "application/json")})
+    except Exception as e:
+        return jsonify({"error": "proxy_failed", "detail": str(e)}), 502
 
 # ---------------------------
 # v1 Inference (generic task)

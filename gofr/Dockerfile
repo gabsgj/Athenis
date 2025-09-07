@@ -1,9 +1,10 @@
 # syntax=docker/dockerfile:1
 FROM golang:1.22-alpine AS builder
 WORKDIR /src
-COPY go.mod .
 COPY . .
-RUN go build -o /out/gofr
+RUN --mount=type=cache,target=/go/pkg/mod \
+	--mount=type=cache,target=/root/.cache/go-build \
+	cd gofr && go build -o /out/gofr
 
 FROM alpine:3.20
 WORKDIR /app
@@ -12,5 +13,5 @@ RUN apk add --no-cache python3 py3-pip && \
 COPY --from=builder /out/gofr /usr/local/bin/gofr
 # Copy Python extraction helper from repo root context
 COPY app/utils /app/app/utils
-EXPOSE 8081
+EXPOSE 8090
 ENTRYPOINT ["/usr/local/bin/gofr"]

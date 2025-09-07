@@ -1,7 +1,8 @@
 const cfg = (window.APP_CONFIG || {});
 const API_BASE = cfg.API_BASE_URL || '/api/v1';
 const API_CORE = '/api';
-const GOFR_BASE = cfg.GOFR_BASE_URL || 'http://localhost:8090';
+// Route uploads via backend proxy to avoid cross-origin issues in Akash
+const GOFR_BASE = cfg.GOFR_BASE_URL || '/gofr';
 const REQUIRE_KEY = !!cfg.REQUIRE_API_KEY;
 
 const ui = {

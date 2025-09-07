@@ -18,15 +18,14 @@ services:
       - RATE_LIMIT_PER_MIN=${RATE_LIMIT_PER_MIN}
       - LOG_LEVEL=${LOG_LEVEL}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
+      - FAST_TEST=${FAST_TEST}
     resources:
       cpu:
-        units: 2
+        units: 0.5
       memory:
-        size: 16Gi
+        size: 1Gi
       storage:
-        size: 20Gi
-      gpu:
-        units: 1
+        size: 2Gi
 
   gofr:
     image: ghcr.io/OWNER/REPO-gofr:latest
@@ -35,11 +34,13 @@ services:
         as: 8090
         to:
           - service: web
+    env:
+      - PORT=8090
     resources:
       cpu:
-        units: 0.5
+        units: 0.25
       memory:
-        size: 512Mi
+        size: 256Mi
       storage:
         size: 1Gi
 
@@ -48,19 +49,17 @@ profiles:
     web:
       resources:
         cpu:
-          units: 2
+          units: 0.5
         memory:
-          size: 16Gi
+          size: 1Gi
         storage:
-          size: 20Gi
-        gpu:
-          units: 1
+          size: 2Gi
     gofr:
       resources:
         cpu:
-          units: 0.5
+          units: 0.25
         memory:
-          size: 512Mi
+          size: 256Mi
         storage:
           size: 1Gi
   placement:
@@ -73,7 +72,7 @@ profiles:
       pricing:
         web:
           denom: uakt
-          amount: 1000
+          amount: 100
         gofr:
           denom: uakt
           amount: 100
