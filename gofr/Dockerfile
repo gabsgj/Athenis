@@ -12,5 +12,5 @@ RUN apk add --no-cache python3 py3-pip && \
 COPY --from=builder /out/gofr /usr/local/bin/gofr
 # Copy Python extraction helper from repo root context
 COPY app/utils /app/app/utils
-EXPOSE 8090
+EXPOSE 8081
 ENTRYPOINT ["/usr/local/bin/gofr"]

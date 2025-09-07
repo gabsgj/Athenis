@@ -214,7 +214,7 @@ func main() {
 		port = os.Getenv("INGEST_PORT")
 	}
 	if port == "" {
-		port = "8090"
+		port = "8091"
 	}
 
 	// Helpful debug prints so you can see extractor and python choices at startup
