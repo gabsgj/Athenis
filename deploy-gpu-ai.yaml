@@ -1,0 +1,122 @@
+---
+version: "2.0"
+
+services:
+  legal-ai-gpu:
+    image: python:3.11-slim
+    expose:
+      - port: 8080
+        as: 80
+        to:
+          - global: true
+    command:
+      - /bin/sh
+      - -c
+      - >
+        export PATH="/usr/bin:/bin:/usr/local/bin:$PATH" &&
+        apt-get update &&
+        apt-get install -y --no-install-recommends 
+        git curl build-essential gcc g++ python3-dev 
+        software-properties-common gnupg2 &&
+        
+        echo "Installing CUDA toolkit..." &&
+        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb &&
+        dpkg -i cuda-keyring_1.0-1_all.deb &&
+        apt-get update &&
+        apt-get install -y cuda-toolkit-12-1 &&
+        
+        echo "Cloning repository..." &&
+        /usr/bin/git clone https://github.com/gabsgj/athenis.git /app &&
+        cd /app &&
+        
+        echo "Installing Python dependencies..." &&
+        pip install --no-cache-dir --upgrade pip &&
+        pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 &&
+        pip install --no-cache-dir transformers==4.36.0 &&
+        pip install --no-cache-dir accelerate==0.25.0 &&
+        pip install --no-cache-dir bitsandbytes==0.41.3 &&
+        pip install --no-cache-dir sentence-transformers==2.2.2 &&
+        pip install --no-cache-dir -r requirements.txt &&
+        pip install --no-cache-dir gunicorn==21.2.0 &&
+        
+        echo "Starting application with GPU support..." &&
+        python -c "import torch; print(f'CUDA Available: {torch.cuda.is_available()}'); print(f'CUDA Devices: {torch.cuda.device_count()}')" &&
+        gunicorn --bind 0.0.0.0:8080 --workers 1 --worker-class gthread --worker-connections 1000 --timeout 300 --preload app.wsgi:application
+
+    env:
+      # Authentication & Security
+      - API_KEY=hackodisha-gpu-ai-deploy-2025-secure-key
+      
+      # AI Model Configuration
+      - MODEL_NAME=microsoft/DialoGPT-medium
+      - QUANTIZE=8bit
+      - USE_GPU=true
+      - DEVICE=cuda
+      - MAX_NEW_TOKENS=512
+      - TEMPERATURE=0.7
+      
+      # Legal AI Specialized Settings
+      - LEGAL_MODEL_NAME=microsoft/DialoGPT-medium
+      - ENABLE_LEGAL_CONTEXT=true
+      - CONTEXT_WINDOW=2048
+      
+      # Performance & Resource Management
+      - TORCH_CUDA_ARCH_LIST=6.1;7.0;7.5;8.0;8.6;9.0
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+      
+      # Application Settings
+      - FAST_TEST=false
+      - CORS_ORIGINS=*
+      - LOG_LEVEL=info
+      - PORT=8080
+      - RATE_LIMIT_PER_MIN=10
+      - CACHE_SIZE=1000
+      
+      # External Services
+      - GOFR_URL=http://legal-ai-gpu:8090
+      - REDIS_URL=""
+
+profiles:
+  compute:
+    legal-ai-gpu:
+      resources:
+        cpu:
+          units: 4
+        memory:
+          size: 16gb
+        storage:
+          - size: 50gb
+        gpu:
+          units: 1
+          attributes:
+            vendor:
+              nvidia:
+                - model: rtx4090
+                - model: rtx3090  
+                - model: a100
+                - model: h100
+                - model: v100
+            ram:
+              - size: 16gi
+              - size: 24gi
+              - size: 40gi
+              - size: 80gi
+
+  placement:
+    akash:
+      pricing:
+        legal-ai-gpu:
+          denom: uakt
+          amount: 150000  # ~$15-20/hour for GPU
+      signedBy:
+        anyOf:
+          - akash1365yvmc4s7awdyj3n2sav7xfx76adc6dnmlx63
+      attributes:
+        host: akash
+
+deployment:
+  legal-ai-gpu:
+    akash:
+      profile: legal-ai-gpu
+      count: 1

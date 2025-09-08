@@ -1,0 +1,181 @@
+---
+version: "2.0"
+
+services:
+  athenis-legal-ai:
+    image: python:3.11-slim
+    expose:
+      - port: 8080
+        as: 80
+        to:
+          - global: true
+    command:
+      - /bin/sh
+      - -c
+      - >
+        export PATH="/usr/bin:/bin:/usr/local/bin:$PATH" &&
+        export DEBIAN_FRONTEND=noninteractive &&
+        
+        echo "🚀 Setting up Legal AI Environment..." &&
+        apt-get update &&
+        apt-get install -y --no-install-recommends 
+        git curl wget build-essential gcc g++ python3-dev 
+        software-properties-common gnupg2 ca-certificates &&
+        
+        echo "📥 Installing CUDA 12.1..." &&
+        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb &&
+        dpkg -i cuda-keyring_1.0-1_all.deb &&
+        apt-get update &&
+        apt-get install -y cuda-toolkit-12-1 nvidia-driver-535 --no-install-recommends &&
+        
+        echo "🔧 Setting up Python environment..." &&
+        /usr/bin/git clone https://github.com/gabsgj/athenis.git /app &&
+        cd /app &&
+        
+        echo "⚡ Installing PyTorch with CUDA support..." &&
+        pip install --no-cache-dir --upgrade pip wheel setuptools &&
+        pip install --no-cache-dir torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu121 &&
+        
+        echo "🤖 Installing AI/ML libraries..." &&
+        pip install --no-cache-dir transformers==4.36.0 &&
+        pip install --no-cache-dir accelerate==0.25.0 &&
+        pip install --no-cache-dir bitsandbytes==0.41.3 &&
+        pip install --no-cache-dir sentence-transformers==2.2.2 &&
+        pip install --no-cache-dir optimum[onnxruntime-gpu]==1.16.0 &&
+        pip install --no-cache-dir flash-attn==2.3.6 --no-build-isolation &&
+        
+        echo "📚 Installing Legal NLP packages..." &&
+        pip install --no-cache-dir spacy==3.7.2 &&
+        pip install --no-cache-dir nltk==3.8.1 &&
+        python -m spacy download en_core_web_sm &&
+        
+        echo "🌐 Installing web server dependencies..." &&
+        pip install --no-cache-dir -r requirements.txt &&
+        pip install --no-cache-dir gunicorn==21.2.0 &&
+        pip install --no-cache-dir uvloop==0.19.0 &&
+        
+        echo "🧪 Testing GPU availability..." &&
+        python -c "
+        import torch
+        print(f'🔥 CUDA Available: {torch.cuda.is_available()}')
+        print(f'📊 CUDA Device Count: {torch.cuda.device_count()}')
+        if torch.cuda.is_available():
+            print(f'🎯 Current Device: {torch.cuda.current_device()}')
+            print(f'📱 Device Name: {torch.cuda.get_device_name(0)}')
+            print(f'💾 Memory Available: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB')
+        " &&
+        
+        echo "🚀 Starting Athenis Legal AI with GPU acceleration..." &&
+        export CUDA_VISIBLE_DEVICES=0 &&
+        export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512 &&
+        gunicorn --bind 0.0.0.0:8080 --workers 1 --worker-class gthread --worker-connections 1000 --timeout 600 --max-requests 100 --max-requests-jitter 10 --preload app.wsgi:application
+
+    env:
+      # 🔐 Authentication & Security
+      - API_KEY=hackodisha-legal-ai-gpu-2025-secure
+      
+      # 🤖 AI Model Configuration
+      - MODEL_NAME=microsoft/DialoGPT-medium
+      - LEGAL_MODEL_NAME=nlpaueb/legal-bert-base-uncased
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+      - QUANTIZE=8bit
+      - USE_GPU=true
+      - DEVICE=cuda
+      - TORCH_DTYPE=float16
+      
+      # ⚡ Performance Optimization
+      - MAX_NEW_TOKENS=1024
+      - TEMPERATURE=0.3
+      - TOP_P=0.9
+      - TOP_K=50
+      - REPETITION_PENALTY=1.1
+      - DO_SAMPLE=true
+      - PAD_TOKEN_ID=50256
+      
+      # 📄 Legal Document Processing
+      - ENABLE_LEGAL_CONTEXT=true
+      - CONTEXT_WINDOW=4096
+      - MAX_DOCUMENT_SIZE=52428800
+      - CHUNK_SIZE=1000
+      - CHUNK_OVERLAP=200
+      - ENABLE_SUMMARIZATION=true
+      - ENABLE_RISK_DETECTION=true
+      - ENABLE_TRANSLATION=true
+      
+      # 🔧 GPU & Memory Management
+      - TORCH_CUDA_ARCH_LIST=6.1;7.0;7.5;8.0;8.6;9.0
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+      - CUDA_LAUNCH_BLOCKING=0
+      - TOKENIZERS_PARALLELISM=false
+      
+      # 🌐 Application Settings
+      - FAST_TEST=false
+      - CORS_ORIGINS=*
+      - LOG_LEVEL=info
+      - PORT=8080
+      - RATE_LIMIT_PER_MIN=15
+      - CACHE_SIZE=2000
+      - ENABLE_STREAMING=true
+      
+      # 📊 Monitoring & Metrics
+      - ENABLE_METRICS=true
+      - PROMETHEUS_PORT=9090
+      - HEALTH_CHECK_INTERVAL=30
+      
+      # 🔗 External Services
+      - GOFR_URL=http://athenis-legal-ai:8090
+      - REDIS_URL=""
+      
+      # 🧠 Advanced AI Features
+      - USE_FLASH_ATTENTION=true
+      - GRADIENT_CHECKPOINTING=true
+      - MIXED_PRECISION=true
+      - COMPILE_MODEL=false
+
+profiles:
+  compute:
+    athenis-legal-ai:
+      resources:
+        cpu:
+          units: 6
+        memory:
+          size: 32gb
+        storage:
+          - size: 100gb
+        gpu:
+          units: 1
+          attributes:
+            vendor:
+              nvidia:
+                - model: rtx4090
+                - model: rtx4080
+                - model: rtx3090
+                - model: a100
+                - model: a6000
+                - model: h100
+                - model: v100
+            ram:
+              - size: 16gi
+              - size: 24gi
+              - size: 40gi
+              - size: 48gi
+              - size: 80gi
+
+  placement:
+    akash:
+      pricing:
+        athenis-legal-ai:
+          denom: uakt
+          amount: 250000  # Premium pricing for high-end GPU
+      signedBy:
+        anyOf:
+          - akash1365yvmc4s7awdyj3n2sav7xfx76adc6dnmlx63
+      attributes:
+        host: akash
+
+deployment:
+  athenis-legal-ai:
+    akash:
+      profile: athenis-legal-ai
+      count: 1
