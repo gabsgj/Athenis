@@ -13,7 +13,7 @@ services:
       - /bin/sh
       - -c
       - >
-        export PATH="/usr/bin:/bin:/usr/local/bin:$PATH" &&
+  ulimit -n 4096 && export PATH="/usr/bin:/bin:/usr/local/bin:$PATH" &&
         
         echo "🚀 Setting up Smart CPU Legal AI..." &&
         apt-get update &&
@@ -30,25 +30,26 @@ services:
         pip install --no-cache-dir sentence-transformers==2.2.2 &&
         pip install --no-cache-dir nltk==3.8.1 &&
         
-        echo "📚 Downloading compact models..." &&
-        python -c "
-        from transformers import AutoTokenizer, AutoModel
-        from sentence_transformers import SentenceTransformer
-        import nltk
-        
-        print('📦 Downloading DistilBERT...')
-        tokenizer = AutoTokenizer.from_pretrained('distilbert-base-uncased')
-        model = AutoModel.from_pretrained('distilbert-base-uncased')
-        
-        print('📦 Downloading sentence transformer...')
-        embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-        
-        print('📦 Downloading NLTK data...')
-        nltk.download('punkt', quiet=True)
-        nltk.download('stopwords', quiet=True)
-        
-        print('✅ All models downloaded successfully!')
-        " &&
+  echo "📚 Downloading compact models..." &&
+  python - <<'PY'
+from transformers import AutoTokenizer, AutoModel
+from sentence_transformers import SentenceTransformer
+import nltk
+
+print('📦 Downloading DistilBERT...')
+tokenizer = AutoTokenizer.from_pretrained('distilbert-base-uncased')
+model = AutoModel.from_pretrained('distilbert-base-uncased')
+
+print('📦 Downloading sentence transformer...')
+embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+
+print('📦 Downloading NLTK data...')
+nltk.download('punkt', quiet=True)
+nltk.download('stopwords', quiet=True)
+
+print('✅ All models downloaded successfully!')
+PY
+  &&
         
         echo "🌐 Installing web dependencies..." &&
         pip install --no-cache-dir -r requirements-min.txt &&
