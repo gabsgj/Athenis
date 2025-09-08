@@ -149,15 +149,6 @@ ui.search && ui.search.addEventListener('input', () => {
   while (i < text.length) {
     const j = lower.indexOf(q, i);
     if (j === -1) { frag.appendChild(document.createTextNode(text.slice(i))); break; }
-function escapeHtml(s){
-  return s.replace(/[&<>"']/g, c => ({
-    '&':'&amp;',
-    '<':'&lt;',
-    '>':'&gt;',
-    '"':'&quot;',
-    "'":'&#39;'
-  }[c]));
-}
     const mark = document.createElement('mark');
     mark.textContent = text.slice(j, j + q.length);
     frag.appendChild(mark);
@@ -436,16 +427,22 @@ window.scrollToSection = scrollToSection;
 window.scrollToApp = scrollToApp;
 
 document.addEventListener('DOMContentLoaded', () => {
-    const apiKeyInput = document.getElementById('api-key-input');
-    const textInput = document.getElementById('text-input');
-    const taskSelector = document.getElementById('task-selector');
-    const languageSelector = document.getElementById('language-selector');
-    const analyzeBtn = document.getElementById('analyze-btn');
-    const streamCheckbox = document.getElementById('stream-checkbox');
-    const resultOutput = document.getElementById('result-output');
-    const riskList = document.getElementById('risk-list').querySelector('ul');
+  const apiKeyInput = document.getElementById('api-key-input');
+  const textInput = document.getElementById('text-input');
+  const taskSelector = document.getElementById('task-selector');
+  const languageSelector = document.getElementById('language-selector');
+  const analyzeBtn = document.getElementById('analyze-btn');
+  const streamCheckbox = document.getElementById('stream-checkbox');
+  const resultOutput = document.getElementById('result-output');
+  const riskListEl = document.getElementById('risk-list');
+  const riskList = riskListEl ? (riskListEl.querySelector('ul') || riskListEl) : null;
 
-    analyzeBtn.addEventListener('click', async () => {
+  if (!analyzeBtn || !textInput || !resultOutput) {
+    // Required elements missing in this template variation; nothing to wire.
+    return;
+  }
+
+  analyzeBtn.addEventListener('click', async () => {
         const apiKey = apiKeyInput.value;
         const text = textInput.value;
         const task = taskSelector.value;
