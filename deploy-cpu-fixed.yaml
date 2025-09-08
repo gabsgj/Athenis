@@ -19,12 +19,15 @@ services:
     command:
       - /bin/sh
       - -c
-      - |
-        apt-get update && apt-get install -y --no-install-recommends git curl build-essential && \
-        git clone https://github.com/gabsgj/athenis.git /app && \
-        cd /app && \
-        pip install --no-cache-dir -r requirements-min.txt && \
-        pip install --no-cache-dir gunicorn==21.2.0 && \
+      - >
+        export PATH="/usr/bin:/bin:/usr/local/bin:$PATH" &&
+        apt-get update &&
+        apt-get install -y --no-install-recommends git curl build-essential &&
+        /usr/bin/git --version &&
+        /usr/bin/git clone https://github.com/gabsgj/athenis.git /app &&
+        cd /app &&
+        pip install --no-cache-dir -r requirements-min.txt &&
+        pip install --no-cache-dir gunicorn==21.2.0 &&
         gunicorn --bind 0.0.0.0:8080 --workers 2 --worker-class gthread --worker-connections 1000 --timeout 60 app.wsgi:application
 
 profiles:
