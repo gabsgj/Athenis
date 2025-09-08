@@ -27,10 +27,10 @@
 **Submission Category:** AI/ML Application with Decentralized Deployment
 
 ### 👥 Team Members
-- **Gabriel Santos** - Full Stack Developer & Project Lead
-- **[Add Teammate 2]** - [Role]
-- **[Add Teammate 3]** - [Role]
-- **[Add Teammate 4]** - [Role]
+- **Gabriel James**
+- **Harinarayanan R**
+- **Jany Sabarinath**
+- **Nayana Shaji**
 
 ### 🔗 Akash Network Deployment
 **Akash Wallet Address:** `akash1u9uh2y5ad3re9s22c36sagedlct2qhk2g58gfh`  
@@ -537,6 +537,8 @@ This project is licensed under the MIT License - see the [`LICENSE`](./LICENSE) 
 <div align="center">
 
 ### 🏛️ ATHENIS - Democratizing Legal Understanding
+
+**TEAM ARETE**
 
 **Built with ❤️ for HackOdisha 5.0**
 
