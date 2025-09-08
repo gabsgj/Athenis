@@ -32,13 +32,26 @@ RISK_RULES = {
     }
 }
 
-embedder = Embedder()
+# Initialize embedder lazily to avoid import issues
+_embedder = None
+
+def get_embedder():
+    global _embedder
+    if _embedder is None:
+        try:
+            from app.models.embeddings import Embedder
+            _embedder = Embedder()
+        except ImportError:
+            _embedder = None
+    return _embedder
 
 def detect_risks(text: str) -> List[Dict]:
     """
     Detects risks in a given text using regex heuristics and semantic scoring.
     """
     risks = []
+    embedder = get_embedder()
+    
     for risk_type, rules in RISK_RULES.items():
         for match in rules["pattern"].finditer(text):
             start, end = match.span()
@@ -48,8 +61,13 @@ def detect_risks(text: str) -> List[Dict]:
             confidence = 0.8  # Base confidence for regex match
             if embedder:
                 # This is a conceptual example. Real implementation would be more complex.
-                similarity = embedder.search(text, [risk_type])[0][1] if embedder.search(text, [risk_type]) else 0
-                confidence = min(1.0, confidence + (similarity * 0.2))
+                try:
+                    search_results = embedder.search(text, [risk_type])
+                    similarity = search_results[0][1] if search_results else 0
+                    confidence = min(1.0, confidence + (similarity * 0.2))
+                except (IndexError, Exception):
+                    # Fall back to base confidence if embedder fails
+                    pass
 
             risks.append({
                 "id": f"{risk_type}-{start}",

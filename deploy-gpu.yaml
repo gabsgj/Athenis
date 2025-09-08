@@ -49,3 +49,4 @@ deployment:
     akash:
       profile: athenis
       count: 1
+      count: 1

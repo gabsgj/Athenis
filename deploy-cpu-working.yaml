@@ -1,0 +1,63 @@
+---
+version: "2.0"
+
+services:
+  legal-simplifier:
+    image: python:3.11-slim
+    expose:
+      - port: 8080
+        as: 80
+        to:
+          - global: true
+    env:
+      - API_KEY=hackodisha-cpu-deploy-2025-secure-key
+      # Enable FAST_TEST to avoid AI dependencies and numpy requirements
+      - FAST_TEST=1
+      # Alternative: Use Akash AI (comment out FAST_TEST and add your API key)
+      # - EXTERNAL_LLM_API_URL=https://chatapi.akash.network/api/v1/chat/completions
+      # - EXTERNAL_LLM_API_KEY=your-akash-ai-api-key-here
+      # - EXTERNAL_LLM_API_KEY_HEADER=Authorization
+      # - EXTERNAL_LLM_API_KEY_SCHEME=Bearer
+      # - EXTERNAL_LLM_FORMAT=openai
+      - CORS_ORIGINS=*
+      - LOG_LEVEL=info
+      - PORT=8080
+      - RATE_LIMIT_PER_MIN=30
+    command:
+      - /bin/sh
+      - -c
+      - |
+        apt-get update && apt-get install -y --no-install-recommends git curl && \
+        git clone https://github.com/gabsgj/athenis.git /app && \
+        cd /app && \
+        pip install --no-cache-dir flask flask-cors werkzeug prometheus-client requests gunicorn python-dotenv pdfminer.six python-docx numpy && \
+        gunicorn --bind 0.0.0.0:8080 --workers 2 --worker-class gthread --worker-connections 1000 --timeout 60 app.wsgi:application
+
+profiles:
+  compute:
+    legal-simplifier:
+      resources:
+        cpu:
+          units: 1000  # 1 CPU core
+        memory:
+          size: 2Gi    # 2GB RAM
+        storage:
+          size: 8Gi    # 8GB storage
+
+  placement:
+    akash:
+      attributes:
+        host: akash
+      signedBy:
+        anyOf:
+          - "akash1365yvmc4s7awdyj3n2sav7xfx76adc6dnmlx63"
+      pricing:
+        legal-simplifier:
+          denom: uakt
+          amount: 12000  # ~$6-8/month
+
+deployment:
+  legal-simplifier:
+    akash:
+      profile: legal-simplifier
+      count: 1

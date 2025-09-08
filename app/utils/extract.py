@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import sys
+import re
 from typing import Optional
 
 MAX_DEFAULT = 5 * 1024 * 1024  # 5 MB default cap on output
@@ -19,13 +20,40 @@ def extract_txt(path: str) -> str:
         return f.read()
 
 def extract_pdf(path: str) -> str:
-    from pdfminer.high_level import extract_text
-    return extract_text(path)
+    try:
+        from pdfminer.high_level import extract_text
+        return extract_text(path)
+    except ImportError:
+        raise Exception("pdfminer.six not installed - cannot extract PDF")
 
 def extract_docx(path: str) -> str:
-    import docx
-    doc = docx.Document(path)
-    return "\n".join(p.text for p in doc.paragraphs)
+    try:
+        import docx
+        doc = docx.Document(path)
+        return "\n".join(p.text for p in doc.paragraphs)
+    except ImportError:
+        raise Exception("python-docx not installed - cannot extract DOCX")
+
+def maybe_truncate(s: str, max_bytes: Optional[int]) -> str:
+    if max_bytes is None:
+        return s
+    # truncate by bytes while keeping valid UTF-8
+    b = s.encode("utf-8")[:max_bytes]
+    try:
+        return b.decode("utf-8")
+    except UnicodeDecodeError:
+        # drop incomplete tail
+        return b.decode("utf-8", errors="ignore")
+
+def split_into_clauses(text: str):
+    """
+    Splits text by periods or semicolons into simple clauses.
+    """
+    if not text:
+        return []
+    # Simple split: sentences ending with '.' or ';'
+    clauses = [clause.strip() for clause in text.replace(';', '.').split('.') if clause.strip()]
+    return clauses
 
 def maybe_truncate(s: str, max_bytes: Optional[int]) -> str:
     if max_bytes is None:
@@ -84,17 +112,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-import re
-
-# app/utils/extract.py
-
-def split_into_clauses(text: str):
-    """
-    Stub implementation for testing.
-    Splits text by periods or semicolons into simple clauses.
-    """
-    if not text:
-        return []
-    # Simple split: sentences ending with '.' or ';'
-    clauses = [clause.strip() for clause in text.replace(';', '.').split('.') if clause.strip()]
-    return clauses

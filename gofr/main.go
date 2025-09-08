@@ -211,9 +211,6 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = os.Getenv("INGEST_PORT")
-	}
-	if port == "" {
 		port = "8091"
 	}
 

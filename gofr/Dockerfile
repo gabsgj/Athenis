@@ -21,5 +21,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /out/gofr /usr/local/bin/gofr
 # Copy Python extraction helper from repo root context
 COPY app/utils /app/app/utils
-EXPOSE 8090
+EXPOSE 8091
 ENTRYPOINT ["/usr/local/bin/gofr"]

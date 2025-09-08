@@ -1,0 +1,102 @@
+---
+version: "2.0"
+
+services:
+  # Backend API Service
+  api:
+    image: ghcr.io/gabsgj/hackodisha/athenis:latest
+    expose:
+      - port: 8080
+        as: 8080
+        to:
+          - service: frontend
+    env:
+      - API_KEY=ak_prod_2025_secure_cpu_deployment_key_5h2k8w9r
+      - EXTERNAL_LLM_API_URL=https://ai.your-akash-endpoint.example.com/v1/chat/completions
+      - EXTERNAL_LLM_API_KEY=your-akash-ai-key
+      - EXTERNAL_LLM_FORMAT=openai
+      - RATE_LIMIT_PER_MIN=20
+      - LOG_LEVEL=info
+      - CORS_ORIGINS=*
+
+  # Frontend Service (Nginx serving static files)
+  frontend:
+    image: nginx:alpine
+    expose:
+      - port: 80
+        as: 80
+        to:
+          - global: true
+    env:
+      - API_ENDPOINT=http://api:8080
+    command:
+      - /bin/sh
+      - -c
+      - |
+        # Create nginx config
+        cat > /etc/nginx/conf.d/default.conf << 'EOF'
+        server {
+            listen 80;
+            root /usr/share/nginx/html;
+            index index.html;
+            
+            # Serve frontend
+            location / {
+                try_files $uri $uri/ /index.html;
+            }
+            
+            # Proxy API requests to backend
+            location /api/ {
+                proxy_pass http://api:8080;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+            }
+        }
+        EOF
+        
+        # Get frontend files from your repo
+        apk add --no-cache git
+        git clone https://github.com/gabsgj/hackOdisha.git /tmp/app
+        cp -r /tmp/app/app/templates/* /usr/share/nginx/html/
+        
+        # Start nginx
+        nginx -g 'daemon off;'
+
+profiles:
+  compute:
+    api:
+      resources:
+        cpu:
+          units: 1000
+        memory:
+          size: 2Gi
+        storage:
+          size: 5Gi
+    frontend:
+      resources:
+        cpu:
+          units: 500
+        memory:
+          size: 512Mi
+        storage:
+          size: 1Gi
+
+  placement:
+    akash:
+      pricing:
+        api:
+          denom: uakt
+          amount: 10000
+        frontend:
+          denom: uakt
+          amount: 5000
+
+deployment:
+  api:
+    akash:
+      profile: api
+      count: 1
+  frontend:
+    akash:
+      profile: frontend
+      count: 1

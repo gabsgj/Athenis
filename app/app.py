@@ -48,7 +48,7 @@ def create_app():
     # --- Services ---
     app.model_manager = ModelManager()
     app.rate_limiter = RateLimiter(rate_per_minute=int(os.getenv("RATE_LIMIT_PER_MIN", 60)))
-    app.cache = Cache()
+    app.cache = Cache(redis_url=os.getenv("REDIS_URL"))
     app.metrics = Metrics()
 
     # --- Helpers ---
@@ -123,15 +123,23 @@ def create_app():
         try:
             if stream:
                 def generate():
-                    for chunk in app.model_manager.stream_process(text, task, language=target_lang):
-                        yield f"event: chunk\ndata: {chunk}\n\n"
-                    yield "event: done\ndata: {}\n\n"
+                    try:
+                        for chunk in app.model_manager.stream_process(text, task, language=target_lang):
+                            yield f"event: chunk\ndata: {chunk}\n\n"
+                        yield "event: done\ndata: {}\n\n"
+                    except Exception as e:
+                        yield f"event: error\ndata: {str(e)}\n\n"
                 return Response(stream_with_context(generate()), mimetype="text/event-stream")
             else:
                 result = app.model_manager.process(text, task, language=target_lang)
+                # Check if result contains error
+                if isinstance(result, dict) and result.get("error"):
+                    return error_response("E500_MODEL_ERROR", result.get("message", "Model processing failed"), 500)
                 return ok({"result": result})
         except ModelError as e:
             return error_response("E500_MODEL_ERROR", str(e), 500)
+        except Exception as e:
+            return error_response("E500_INTERNAL_SERVER_ERROR", f"Unexpected error: {str(e)}", 500)
 
     @app.route("/gofr/ingest", methods=["POST", "OPTIONS"])
     @apply_rate_limit
@@ -152,6 +160,12 @@ def create_app():
         f = request.files["file"]
         if not f.filename:
             return error_response("E400_EMPTY_NAME", "Empty filename", 400)
+
+        # Validate file type
+        allowed_extensions = {'.pdf', '.docx', '.txt'}
+        file_ext = os.path.splitext(f.filename)[1].lower()
+        if file_ext not in allowed_extensions:
+            return error_response("E400_UNSUPPORTED_FILE", f"Unsupported file type: {file_ext}. Allowed: {', '.join(allowed_extensions)}", 400)
 
         filename = secure_filename(f.filename)
         with tempfile.TemporaryDirectory() as tdir:
@@ -177,26 +191,37 @@ def create_app():
     @require_api_key
     @apply_rate_limit
     def simplify():
-        return process_request("simplify", request.json.get("text"))
+        data = request.get_json()
+        if not data:
+            return error_response("E400_BAD_REQUEST", "Request must be JSON", 400)
+        return process_request("simplify", data.get("text"))
 
     @app.route("/api/summarize", methods=["POST"])
     @require_api_key
     @apply_rate_limit
     def summarize():
-        return process_request("summarize", request.json.get("text"))
+        data = request.get_json()
+        if not data:
+            return error_response("E400_BAD_REQUEST", "Request must be JSON", 400)
+        return process_request("summarize", data.get("text"))
 
     @app.route("/api/translate", methods=["POST"])
     @require_api_key
     @apply_rate_limit
     def translate():
         data = request.get_json()
+        if not data:
+            return error_response("E400_BAD_REQUEST", "Request must be JSON", 400)
         return process_request("translate", data.get("text"), target_lang=data.get("target_lang", "en"))
 
     @app.route("/api/full-analysis", methods=["POST"])
     @require_api_key
     @apply_rate_limit
     def full_analysis():
-        text = request.json.get("text")
+        data = request.get_json()
+        if not data:
+            return error_response("E400_BAD_REQUEST", "Request must be JSON", 400)
+        text = data.get("text")
         if not text:
             return error_response("E400_BAD_REQUEST", "Missing 'text' field.", 400)
         try:

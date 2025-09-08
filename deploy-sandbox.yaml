@@ -1,7 +1,12 @@
 ---
-version: "2.0"
-
-services:
+version: "    command:
+      - "/bin/sh"
+      - "-c"
+      - |
+        apt-get update && apt-get install -y --no-install-recommends git curl && \
+        git clone https://github.com/gabsgj/athenis.git /app && \
+        cd /app && pip install --no-cache-dir flask flask-cors werkzeug prometheus-client requests gunicorn python-dotenv pdfminer.six python-docx && \
+        gunicorn -w 2 -k gthread -b 0.0.0.0:8080 app.wsgi:applicationservices:
   athenis:
     image: python:3.11-slim
     expose:

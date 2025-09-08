@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"os"
@@ -51,16 +52,31 @@ func (h *handler) Ingest(c *gofr.Context) (interface{}, error) {
 	tempFile.Close() // Close so the python script can open it
 
 	// Execute the python script
-	cmd := exec.CommandContext(c.Request.Context(), "python", h.pyScriptPath, "--path", tempFile.Name())
+	cmd := exec.CommandContext(c.Request.Context(), "python", h.pyScriptPath, "--file", tempFile.Name())
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		c.Logger.Errorf("Python script execution failed: %v, Output: %s", err, string(output))
 		return nil, gofr.NewError(http.StatusInternalServerError, "Error running extraction script")
 	}
 
+	// Parse the JSON output from the Python script
+	var extractResult struct {
+		Text  string `json:"text"`
+		Error string `json:"error"`
+	}
+	
+	if err := json.Unmarshal(output, &extractResult); err != nil {
+		c.Logger.Errorf("Failed to parse Python script output: %v", err)
+		return nil, gofr.NewError(http.StatusInternalServerError, "Invalid extraction output format")
+	}
+	
+	if extractResult.Error != "" {
+		return nil, gofr.NewError(http.StatusBadRequest, "Extraction failed: "+extractResult.Error)
+	}
+
 	return map[string]interface{}{
 		"ok":    true,
-		"text":  string(output),
+		"text":  extractResult.Text,
 		"bytes": bytesCopied,
 	}, nil
 }

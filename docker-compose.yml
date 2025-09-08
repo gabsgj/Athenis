@@ -12,7 +12,7 @@ services:
       - QUANTIZE=${QUANTIZE:-8bit}
       - REDIS_URL=${REDIS_URL}
       - EXTERNAL_LLM_API_URL=${EXTERNAL_LLM_API_URL}
-      - GOFR_URL=http://gofr:8090
+      - GOFR_URL=http://gofr:8091
       - RATE_LIMIT_PER_MIN=${RATE_LIMIT_PER_MIN:-60}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
@@ -28,13 +28,17 @@ services:
     depends_on:
       - gofr
 
-gofr:
-  build:
-    context: .
-    dockerfile: gofr/Dockerfile
-  image: legal-simplifier-gofr:dev
-  profiles: ["cpu", "gpu"]
-
+  gofr:
+    build:
+      context: .
+      dockerfile: gofr/Dockerfile
+    image: legal-simplifier-gofr:dev
+    ports:
+      - "8091:8091"
+    environment:
+      - PORT=8091
+      - PY_EXTRACT_SCRIPT=/app/app/utils/extract.py
+    profiles: ["cpu", "gpu"]
 
 profiles:
   gpu: {}

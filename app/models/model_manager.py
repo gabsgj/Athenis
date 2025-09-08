@@ -167,19 +167,22 @@ class ModelManager:
 
         prompt = self.prompt_manager.build(task, text, language)
         
-        if self.external_llm_url:
-            # Streaming from external URL not implemented in this example
-            result = self._external_call(prompt)
-            for word in result.split():
-                yield word + " "
-        elif self.generator:
-            # This is a simplified stream, real streaming requires more complex setup
-            generated_outputs = self.generator(prompt)
-            result = generated_outputs[0]['generated_text'][len(prompt):]
-            for word in result.split():
-                yield word + " "
-        else:
-            yield "Error: No model or external API available."
+        try:
+            if self.external_llm_url:
+                # Streaming from external URL not implemented in this example
+                result = self._external_call(prompt)
+                for word in result.split():
+                    yield word + " "
+            elif self.generator:
+                # This is a simplified stream, real streaming requires more complex setup
+                generated_outputs = self.generator(prompt)
+                result = generated_outputs[0]['generated_text'][len(prompt):]
+                for word in result.split():
+                    yield word + " "
+            else:
+                yield "Error: No model or external API available."
+        except Exception as e:
+            yield f"Error: {str(e)}"
 
     def analyze_document(self, text: str, mode: str, stream=False, target_lang="en"):
         if stream:
