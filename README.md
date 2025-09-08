@@ -4,13 +4,17 @@
 > **Democratizing Legal Understanding with Decentralized AI**
 
 [![Akash Network](https://img.shields.io/badge/Deployed%20on-Akash%20Network-red)](https://akash.network)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yel### 🎬 Demo Video & Screenshots
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+### 🎬 Demo Video & Screenshots
+
 
 ### 🌐 Live Demo
 **🚀 Try It Now:** [https://tinyurl.com/athenishackodisha](https://tinyurl.com/athenishackodisha)
 
 ### Demo Video
-**[📹 Watch 3-Minute Demo](https://your-demo-video-link.com)**svg)](https://opensource.org/licenses/MIT)
+[📹 Watch 3-Minute Demo](https://your-demo-video-link.com) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://python.org)
 
 ---
