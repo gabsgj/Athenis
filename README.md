@@ -182,8 +182,9 @@ make build
 4. Expose TCP port `8080` (Flask). Keep Go service internal.
 
 ---
-## Deployment on Render
-https://athenis.onrender.com
+### Deployment Links
+- **Flask Service:** [athenis.onrender.com](https://athenis.onrender.com)  
+- **Go Service:** [athenis-gofr.onrender.com](https://athenis-gofr.onrender.com)
 
 ## 🛠️ Troubleshooting
 
