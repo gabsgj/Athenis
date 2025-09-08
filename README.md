@@ -281,19 +281,20 @@ curl -X POST http://localhost:8080/api/v1/upload \
 
 ## ⚙️ Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `API_KEY` | Authentication key | - |
-| `MODEL_NAME` | LLM model | `TinyLlama/TinyLlama-1.1B-Chat-v1.0` |
-| `QUANTIZE` | Quantization mode | `8bit` |
-| `REDIS_URL` | Cache backend | - |
-| `GOFR_URL` | Document service | `http://gofr:8090` |
-| `RATE_LIMIT_PER_MIN` | Request limits | `60` |
-| `CORS_ORIGINS` | Allowed origins | `*` |
+Set variables via `.env` or CI/CD secrets.
 
-See [`.env.example`](./.env.example) for complete configuration options.
+| Variable               | Description                       | Default                              |
+| ---------------------- | --------------------------------- | ------------------------------------ |
+| `API_KEY`              | Required API key for clients      | –                                    |
+| `MODEL_NAME`           | LLM model name                    | `TinyLlama/TinyLlama-1.1B-Chat-v1.0` |
+| `QUANTIZE`             | `8bit` / `4bit` / `none`          | `8bit`                               |
+| `REDIS_URL`            | Redis cache URL                   | –                                    |
+| `EXTERNAL_LLM_API_URL` | Optional fallback LLM endpoint    | –                                    |
+| `GOFR_URL`             | Go ingestion service              | `http://gofr:8090`                   |
+| `RATE_LIMIT_PER_MIN`   | Requests per minute per client    | `60`                                 |
+| `CORS_ORIGINS`         | Allowed origins (comma-separated) | –                                    |
 
----
+See `.env.example` for full list.
 
 ## 🧪 Testing & Quality Assurance
 
@@ -394,23 +395,6 @@ This project demonstrates:
 - Clear visual feedback
 
 ---
-
-## ⚙️ Configuration
-
-Set variables via `.env` or CI/CD secrets.
-
-| Variable               | Description                       | Default                              |
-| ---------------------- | --------------------------------- | ------------------------------------ |
-| `API_KEY`              | Required API key for clients      | –                                    |
-| `MODEL_NAME`           | LLM model name                    | `TinyLlama/TinyLlama-1.1B-Chat-v1.0` |
-| `QUANTIZE`             | `8bit` / `4bit` / `none`          | `8bit`                               |
-| `REDIS_URL`            | Redis cache URL                   | –                                    |
-| `EXTERNAL_LLM_API_URL` | Optional fallback LLM endpoint    | –                                    |
-| `GOFR_URL`             | Go ingestion service              | `http://gofr:8090`                   |
-| `RATE_LIMIT_PER_MIN`   | Requests per minute per client    | `60`                                 |
-| `CORS_ORIGINS`         | Allowed origins (comma-separated) | –                                    |
-
-See `.env.example` for full list.
 
 ---
 
