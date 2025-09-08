@@ -1,0 +1,170 @@
+---
+version: "2.0"
+
+services:
+  athenis-legal-ai-cpu:
+    image: python:3.11-slim
+    expose:
+      - port: 8080
+        as: 80
+        to:
+          - global: true
+    command:
+      - /bin/sh
+      - -c
+      - >
+        export PATH="/usr/bin:/bin:/usr/local/bin:$PATH" &&
+        export DEBIAN_FRONTEND=noninteractive &&
+        
+        echo "🚀 Setting up CPU-Optimized Legal AI..." &&
+        apt-get update &&
+        apt-get install -y --no-install-recommends 
+        git curl wget build-essential gcc g++ python3-dev 
+        libblas3 liblapack3 liblapack-dev libblas-dev 
+        gfortran libhdf5-dev pkg-config &&
+        
+        echo "📥 Cloning Athenis repository..." &&
+        /usr/bin/git clone https://github.com/gabsgj/athenis.git /app &&
+        cd /app &&
+        
+        echo "⚡ Installing optimized PyTorch CPU..." &&
+        pip install --no-cache-dir --upgrade pip wheel setuptools &&
+        pip install --no-cache-dir torch==2.1.0+cpu torchvision==0.16.0+cpu torchaudio==2.1.0+cpu --index-url https://download.pytorch.org/whl/cpu &&
+        
+        echo "🤖 Installing CPU-optimized AI libraries..." &&
+        pip install --no-cache-dir transformers==4.36.0 &&
+        pip install --no-cache-dir accelerate==0.25.0 &&
+        pip install --no-cache-dir sentence-transformers==2.2.2 &&
+        pip install --no-cache-dir optimum[onnxruntime]==1.16.0 &&
+        pip install --no-cache-dir intel-extension-for-pytorch==2.1.0 &&
+        
+        echo "📚 Installing Legal NLP packages..." &&
+        pip install --no-cache-dir spacy==3.7.2 &&
+        pip install --no-cache-dir nltk==3.8.1 &&
+        python -m spacy download en_core_web_sm &&
+        python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')" &&
+        
+        echo "🌐 Installing web dependencies..." &&
+        pip install --no-cache-dir -r requirements.txt &&
+        pip install --no-cache-dir gunicorn==21.2.0 &&
+        pip install --no-cache-dir gevent==23.9.1 &&
+        
+        echo "🧪 Testing CPU optimization..." &&
+        python -c "
+        import torch
+        print(f'🔥 PyTorch Version: {torch.__version__}')
+        print(f'📊 CPU Threads: {torch.get_num_threads()}')
+        print(f'🎯 CPU Device: {torch.device('cpu')}')
+        print(f'💾 Available Memory: Optimized for CPU')
+        try:
+            import intel_extension_for_pytorch as ipex
+            print(f'⚡ Intel Extension: Available')
+        except:
+            print(f'⚡ Intel Extension: Not available')
+        " &&
+        
+        echo "🚀 Starting Athenis Legal AI with CPU optimization..." &&
+        export OMP_NUM_THREADS=4 &&
+        export MKL_NUM_THREADS=4 &&
+        export OPENBLAS_NUM_THREADS=4 &&
+        export VECLIB_MAXIMUM_THREADS=4 &&
+        export NUMEXPR_NUM_THREADS=4 &&
+        gunicorn --bind 0.0.0.0:8080 --workers 2 --worker-class gevent --worker-connections 1000 --timeout 300 --max-requests 500 --max-requests-jitter 50 --preload app.wsgi:application
+
+    env:
+      # 🔐 Authentication & Security
+      - API_KEY=hackodisha-legal-ai-cpu-2025-secure
+      
+      # 🤖 CPU-Optimized AI Models
+      - MODEL_NAME=distilbert-base-uncased
+      - LEGAL_MODEL_NAME=nlpaueb/legal-bert-small
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+      - QUANTIZE=none
+      - USE_GPU=false
+      - DEVICE=cpu
+      - TORCH_DTYPE=float32
+      
+      # ⚡ CPU Performance Optimization
+      - MAX_NEW_TOKENS=256
+      - TEMPERATURE=0.7
+      - TOP_P=0.9
+      - TOP_K=40
+      - REPETITION_PENALTY=1.05
+      - DO_SAMPLE=true
+      - USE_CACHE=true
+      - LOW_CPU_MEM_USAGE=true
+      
+      # 📄 Optimized Document Processing
+      - ENABLE_LEGAL_CONTEXT=true
+      - CONTEXT_WINDOW=1024
+      - MAX_DOCUMENT_SIZE=10485760
+      - CHUNK_SIZE=500
+      - CHUNK_OVERLAP=100
+      - ENABLE_SUMMARIZATION=true
+      - ENABLE_RISK_DETECTION=true
+      - ENABLE_TRANSLATION=false
+      
+      # 🔧 CPU & Memory Management
+      - OMP_NUM_THREADS=4
+      - MKL_NUM_THREADS=4
+      - OPENBLAS_NUM_THREADS=4
+      - VECLIB_MAXIMUM_THREADS=4
+      - NUMEXPR_NUM_THREADS=4
+      - TOKENIZERS_PARALLELISM=false
+      - PYTORCH_ENABLE_MPS_FALLBACK=1
+      
+      # 🌐 Application Settings
+      - FAST_TEST=false
+      - CORS_ORIGINS=*
+      - LOG_LEVEL=info
+      - PORT=8080
+      - RATE_LIMIT_PER_MIN=5
+      - CACHE_SIZE=500
+      - ENABLE_STREAMING=true
+      - STREAM_CHUNK_SIZE=50
+      
+      # 📊 CPU Monitoring & Metrics
+      - ENABLE_METRICS=true
+      - PROMETHEUS_PORT=9090
+      - HEALTH_CHECK_INTERVAL=60
+      - CPU_OPTIMIZED=true
+      
+      # 🔗 External Services
+      - GOFR_URL=http://athenis-legal-ai-cpu:8090
+      - REDIS_URL=""
+      
+      # 🧠 CPU-Specific AI Features
+      - USE_INTEL_EXTENSION=true
+      - ENABLE_JEMALLOC=true
+      - PREFETCH_FACTOR=2
+      - BATCH_SIZE=1
+      - INFERENCE_MODE=true
+
+profiles:
+  compute:
+    athenis-legal-ai-cpu:
+      resources:
+        cpu:
+          units: 8  # More CPU cores for better performance
+        memory:
+          size: 16gb  # More RAM to compensate for no GPU
+        storage:
+          - size: 40gb
+
+  placement:
+    akash:
+      pricing:
+        athenis-legal-ai-cpu:
+          denom: uakt
+          amount: 25000  # Much more affordable than GPU
+      signedBy:
+        anyOf:
+          - akash1365yvmc4s7awdyj3n2sav7xfx76adc6dnmlx63
+      attributes:
+        host: akash
+
+deployment:
+  athenis-legal-ai-cpu:
+    akash:
+      profile: athenis-legal-ai-cpu
+      count: 1

@@ -1,0 +1,129 @@
+---
+version: "2.0"
+
+services:
+  athenis-smart-cpu:
+    image: python:3.11-slim
+    expose:
+      - port: 8080
+        as: 80
+        to:
+          - global: true
+    command:
+      - /bin/sh
+      - -c
+      - >
+        export PATH="/usr/bin:/bin:/usr/local/bin:$PATH" &&
+        
+        echo "🚀 Setting up Smart CPU Legal AI..." &&
+        apt-get update &&
+        apt-get install -y --no-install-recommends git curl build-essential python3-dev &&
+        
+        echo "📥 Cloning repository..." &&
+        /usr/bin/git clone https://github.com/gabsgj/athenis.git /app &&
+        cd /app &&
+        
+        echo "⚡ Installing lightweight AI stack..." &&
+        pip install --no-cache-dir --upgrade pip &&
+        pip install --no-cache-dir torch==2.1.0+cpu --index-url https://download.pytorch.org/whl/cpu &&
+        pip install --no-cache-dir transformers[torch]==4.36.0 &&
+        pip install --no-cache-dir sentence-transformers==2.2.2 &&
+        pip install --no-cache-dir nltk==3.8.1 &&
+        
+        echo "📚 Downloading compact models..." &&
+        python -c "
+        from transformers import AutoTokenizer, AutoModel
+        from sentence_transformers import SentenceTransformer
+        import nltk
+        
+        print('📦 Downloading DistilBERT...')
+        tokenizer = AutoTokenizer.from_pretrained('distilbert-base-uncased')
+        model = AutoModel.from_pretrained('distilbert-base-uncased')
+        
+        print('📦 Downloading sentence transformer...')
+        embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        
+        print('📦 Downloading NLTK data...')
+        nltk.download('punkt', quiet=True)
+        nltk.download('stopwords', quiet=True)
+        
+        print('✅ All models downloaded successfully!')
+        " &&
+        
+        echo "🌐 Installing web dependencies..." &&
+        pip install --no-cache-dir -r requirements-min.txt &&
+        pip install --no-cache-dir gunicorn==21.2.0 &&
+        
+        echo "🚀 Starting optimized Legal AI..." &&
+        export OMP_NUM_THREADS=2 &&
+        export MKL_NUM_THREADS=2 &&
+        gunicorn --bind 0.0.0.0:8080 --workers 2 --worker-class gthread --worker-connections 500 --timeout 180 app.wsgi:application
+
+    env:
+      # 🔐 Security
+      - API_KEY=hackodisha-smart-cpu-2025
+      
+      # 🤖 Lightweight AI Configuration
+      - MODEL_NAME=distilbert-base-uncased
+      - EMBEDDING_MODEL=all-MiniLM-L6-v2
+      - USE_GPU=false
+      - DEVICE=cpu
+      - QUANTIZE=none
+      
+      # ⚡ Performance Settings
+      - MAX_NEW_TOKENS=128
+      - TEMPERATURE=0.8
+      - BATCH_SIZE=1
+      - USE_CACHE=true
+      - LOW_CPU_MEM_USAGE=true
+      
+      # 📄 Document Processing
+      - ENABLE_LEGAL_CONTEXT=true
+      - CONTEXT_WINDOW=512
+      - MAX_DOCUMENT_SIZE=5242880
+      - CHUNK_SIZE=300
+      - CHUNK_OVERLAP=50
+      - ENABLE_SUMMARIZATION=true
+      - ENABLE_RISK_DETECTION=true
+      
+      # 🌐 App Settings
+      - FAST_TEST=false
+      - CORS_ORIGINS=*
+      - LOG_LEVEL=info
+      - PORT=8080
+      - RATE_LIMIT_PER_MIN=10
+      - ENABLE_STREAMING=true
+      
+      # 🔧 CPU Optimization
+      - OMP_NUM_THREADS=2
+      - MKL_NUM_THREADS=2
+      - TOKENIZERS_PARALLELISM=false
+
+profiles:
+  compute:
+    athenis-smart-cpu:
+      resources:
+        cpu:
+          units: 4
+        memory:
+          size: 8gb
+        storage:
+          - size: 20gb
+
+  placement:
+    akash:
+      pricing:
+        athenis-smart-cpu:
+          denom: uakt
+          amount: 18000  # Very affordable - ~$1.50-2/hour
+      signedBy:
+        anyOf:
+          - akash1365yvmc4s7awdyj3n2sav7xfx76adc6dnmlx63
+      attributes:
+        host: akash
+
+deployment:
+  athenis-smart-cpu:
+    akash:
+      profile: athenis-smart-cpu
+      count: 1
